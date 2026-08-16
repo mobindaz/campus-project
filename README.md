@@ -1,36 +1,112 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Campus Operations Platform (`campus-ops`)
 
-## Getting Started
+Single-tenant college operations platform featuring **Placement Management** and **Transfer Certificate (TC) Management** modules. Built for independent per-college redeployment with admin-configurable structures and custom field engine.
 
-First, run the development server:
+---
 
+## 🚀 Quick Start (Local Development Setup)
+
+Follow these exact steps on a fresh system to clone, install, configure, and start the local development environment.
+
+### 📋 Prerequisites
+Ensure the following tools are installed on your workstation:
+- **Node.js**: `v22 LTS` (or v20 LTS minimum)
+- **Package Manager**: `pnpm` (`npm install -g pnpm`)
+- **Database Options**:
+  - **Docker Desktop** (for running local PostgreSQL via Docker Compose), OR
+  - A cloud PostgreSQL instance connection string.
+
+---
+
+### Step 1: Clone Repository
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone <repository-url> campus-ops
+cd campus-ops
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Step 2: Install Dependencies
+```bash
+pnpm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Step 3: Configure Environment Variables
+Copy `.env.example` to `.env`:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+# On Linux / macOS / Git Bash:
+cp .env.example .env
 
-## Learn More
+# On Windows PowerShell:
+Copy-Item .env.example .env
+```
 
-To learn more about Next.js, take a look at the following resources:
+> [!NOTE]
+> `.env` contains default values for local development. Required Phase 0/1 keys (`DATABASE_URL`, `AUTH_SECRET`, `APP_URL`, `NODE_ENV`) are prefilled with local development defaults.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Step 4: Start PostgreSQL Database
 
-## Deploy on Vercel
+#### Option A: Local Docker PostgreSQL (Recommended for offline local dev)
+Start the PostgreSQL 16 container using Docker Compose:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+docker compose up -d
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+To verify the container is healthy:
+```bash
+docker compose ps
+```
+
+#### Option B: Cloud PostgreSQL
+If using a managed cloud database (Neon, Supabase DB, Railway, etc.), update the `DATABASE_URL` in `.env`:
+```env
+DATABASE_URL="postgresql://user:password@your-cloud-host:5432/campus_ops?sslmode=require"
+```
+
+---
+
+### Step 5: Start Development Server
+
+Run the Next.js development server:
+
+```bash
+pnpm dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser to view the application.
+
+---
+
+## 🛠️ Available Scripts
+
+- `pnpm dev` — Start the Next.js App Router dev server on port 3000.
+- `pnpm build` — Create an optimized production build (TypeScript & Next Turbopack build check).
+- `pnpm start` — Start the production server after building.
+- `pnpm lint` — Run ESLint check over the codebase.
+- `pnpm format` — Format all files using Prettier.
+
+---
+
+## 📁 Repository Structure Overview
+
+```text
+src/
+├── app/                  # Next.js App Router pages and route groups
+├── components/           # UI components (shadcn primitives, forms, tables)
+├── modules/              # Core feature modules (auth, rbac, departments, tc, placements, etc.)
+├── server/               # Business logic services, Prisma repositories, auth & storage
+├── config/               # Zod-validated environment config (env.ts)
+├── lib/                  # Shared utility functions (utils.ts)
+└── types/                # TypeScript shared type definitions
+
+prisma/                   # Database schema & migrations
+docs/                     # Architecture & build specifications (docs/ARCHITECTURE.md)
+```
+
+---
+
+## ⚙️ Environment Variable Validation
+
+Environment variables are validated at boot time via `src/config/env.ts` using **Zod**. If a required variable is missing or malformed, the application will stop boot and output clear error logs detailing which variables failed.
