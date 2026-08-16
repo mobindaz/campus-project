@@ -1,0 +1,11 @@
+// Prisma schema for Campus Operations Platform
+// Single-tenant PostgreSQL database per college deployment
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
