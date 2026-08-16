@@ -15,6 +15,7 @@ import {
   BarChart3,
   Settings,
   Building2,
+  BookOpen,
   ChevronLeft,
   ChevronRight,
   Shield,
@@ -32,6 +33,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   BarChart3,
   Settings,
   Building2,
+  BookOpen,
 };
 
 export interface SidebarProps {

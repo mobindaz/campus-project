@@ -90,6 +90,13 @@ const DEFAULT_PERMISSIONS = [
   { code: "departments.delete", name: "Delete Departments", module: "departments", description: "Deactivate or remove departments" },
   { code: "departments.manage", name: "Manage Departments", module: "departments", description: "Full department module administration" },
 
+  // Program module
+  { code: "programs.create", name: "Create Programs", module: "programs", description: "Create degree, diploma, and certificate programs" },
+  { code: "programs.read", name: "Read Programs", module: "programs", description: "View programs list and details" },
+  { code: "programs.update", name: "Update Programs", module: "programs", description: "Modify program details and status" },
+  { code: "programs.delete", name: "Delete Programs", module: "programs", description: "Deactivate or remove programs" },
+  { code: "programs.manage", name: "Manage Programs", module: "programs", description: "Full program module administration" },
+
   // Platform Engines & Management
   { code: "workflow.manage", name: "Manage Workflows", module: "workflow", description: "Configure approval chains and workflow steps" },
   { code: "forms.manage", name: "Manage Dynamic Forms", module: "forms", description: "Create and edit dynamic form definitions" },

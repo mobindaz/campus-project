@@ -21,6 +21,13 @@ export const NAVIGATION_CONFIG: NavItem[] = [
     module: "departments",
   },
   {
+    title: "Programs",
+    href: "/programs",
+    iconName: "BookOpen",
+    requiredPermission: "programs.read",
+    module: "programs",
+  },
+  {
     title: "Students",
     href: "/students",
     iconName: "GraduationCap",

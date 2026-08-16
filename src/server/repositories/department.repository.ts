@@ -56,11 +56,12 @@ export async function listDepartments(options: ListDepartmentsOptions = {}) {
  * to determine whether a hard delete is safe (0 references) or if deactivation is required.
  */
 export async function countDepartmentReferences(departmentId: string): Promise<number> {
-  const userScopesCount = await prisma.userDepartmentScope.count({
-    where: { departmentId },
-  });
+  const [userScopesCount, programsCount] = await Promise.all([
+    prisma.userDepartmentScope.count({ where: { departmentId } }),
+    prisma.program.count({ where: { departmentId } }),
+  ]);
 
-  return userScopesCount;
+  return userScopesCount + programsCount;
 }
 
 export async function createDepartment(data: Prisma.DepartmentCreateInput) {

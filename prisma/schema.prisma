@@ -137,8 +137,35 @@ model Department {
   createdAt   DateTime              @default(now())
   updatedAt   DateTime              @updatedAt
   userScopes  UserDepartmentScope[]
+  programs    Program[]
 
   @@map("departments")
+}
+
+enum ProgramType {
+  DEGREE
+  DIPLOMA
+  POST_GRADUATE
+  CERTIFICATE
+  DOCTORAL
+}
+
+model Program {
+  id            String      @id @default(cuid())
+  name          String      @unique
+  code          String      @unique
+  shortName     String
+  type          ProgramType @default(DEGREE)
+  durationYears Int         @default(4)
+  departmentId  String
+  department    Department  @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  isActive      Boolean     @default(true)
+  customFields  Json        @default("{}")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([departmentId])
+  @@map("programs")
 }
 
 model UserDepartmentScope {
