@@ -18,12 +18,24 @@ export default function Home() {
         </p>
 
         <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
-          <Button variant="default" size="lg">
-            Get Started
-          </Button>
-          <Button variant="outline" size="lg">
-            View Architecture Specs
-          </Button>
+          <a
+            href="/dashboard"
+            className="px-6 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-lg shadow-indigo-600/20 transition-all"
+          >
+            Go to Dashboard
+          </a>
+          <a
+            href="/login"
+            className="px-6 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium border border-slate-700 transition-all"
+          >
+            Sign In
+          </a>
+          <a
+            href="/signup"
+            className="px-6 py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 font-medium border border-slate-800 transition-all"
+          >
+            Sign Up
+          </a>
         </div>
 
         <div className="pt-8 border-t border-border/40 grid grid-cols-1 sm:grid-cols-3 gap-4 text-left text-xs text-muted-foreground">
