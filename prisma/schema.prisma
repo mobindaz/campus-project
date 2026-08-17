@@ -151,21 +151,67 @@ enum ProgramType {
 }
 
 model Program {
-  id            String      @id @default(cuid())
-  name          String      @unique
-  code          String      @unique
-  shortName     String
-  type          ProgramType @default(DEGREE)
-  durationYears Int         @default(4)
-  departmentId  String
-  department    Department  @relation(fields: [departmentId], references: [id], onDelete: Restrict)
-  isActive      Boolean     @default(true)
-  customFields  Json        @default("{}")
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  id              String           @id @default(cuid())
+  name            String           @unique
+  code            String           @unique
+  shortName       String
+  type            ProgramType      @default(DEGREE)
+  durationYears   Int              @default(4)
+  departmentId    String
+  department      Department       @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  isActive        Boolean          @default(true)
+  customFields    Json             @default("{}")
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  academicPeriods AcademicPeriod[]
+  batches         Batch[]
 
   @@index([departmentId])
   @@map("programs")
+}
+
+enum AcademicPeriodPattern {
+  SEMESTER
+  YEAR
+  TERM
+  TRIMESTER
+  CUSTOM
+}
+
+model AcademicPeriod {
+  id         String                @id @default(cuid())
+  name       String
+  code       String
+  pattern    AcademicPeriodPattern @default(SEMESTER)
+  orderIndex Int                   @default(1)
+  programId  String
+  program    Program               @relation(fields: [programId], references: [id], onDelete: Cascade)
+  isActive   Boolean               @default(true)
+  createdAt  DateTime              @default(now())
+  updatedAt  DateTime              @updatedAt
+
+  @@unique([programId, code])
+  @@index([programId, orderIndex])
+  @@map("academic_periods")
+}
+
+model Batch {
+  id             String   @id @default(cuid())
+  name           String
+  code           String
+  academicYear   String
+  admissionYear  Int
+  graduationYear Int
+  section        String?
+  programId      String
+  program        Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([programId, code])
+  @@index([programId])
+  @@map("batches")
 }
 
 model UserDepartmentScope {

@@ -28,6 +28,13 @@ export const NAVIGATION_CONFIG: NavItem[] = [
     module: "programs",
   },
   {
+    title: "Academic Structure",
+    href: "/academic-structure",
+    iconName: "Calendar",
+    requiredPermission: "structure.manage",
+    module: "structure",
+  },
+  {
     title: "Students",
     href: "/students",
     iconName: "GraduationCap",

@@ -16,6 +16,7 @@ import {
   Settings,
   Building2,
   BookOpen,
+  Calendar,
   ChevronLeft,
   ChevronRight,
   Shield,
@@ -34,6 +35,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Settings,
   Building2,
   BookOpen,
+  Calendar,
 };
 
 export interface SidebarProps {
@@ -59,31 +61,34 @@ export function Sidebar({
       {/* Mobile Backdrop */}
       {isMobileOpen && (
         <div
-          className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-40 lg:hidden"
+          className="fixed inset-0 z-40 bg-slate-950/80 backdrop-blur-sm lg:hidden"
           onClick={onMobileClose}
         />
       )}
 
       <aside
         className={cn(
-          "fixed top-0 bottom-0 left-0 z-50 bg-slate-900 border-r border-slate-800 transition-all duration-300 flex flex-col justify-between",
+          "fixed top-0 bottom-0 left-0 z-50 flex flex-col justify-between border-r border-slate-800 bg-slate-900 transition-all duration-300",
           isCollapsed ? "w-20" : "w-64",
           isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
         {/* Sidebar Header / Branding */}
         <div>
-          <div className="h-16 flex items-center justify-between px-4 border-b border-slate-800">
-            <Link href="/dashboard" className="flex items-center space-x-3 overflow-hidden">
-              <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black text-lg shadow-lg shadow-indigo-500/20 flex-shrink-0">
+          <div className="flex h-16 items-center justify-between border-b border-slate-800 px-4">
+            <Link
+              href="/dashboard"
+              className="flex items-center space-x-3 overflow-hidden"
+            >
+              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-lg font-black text-white shadow-lg shadow-indigo-500/20">
                 C
               </div>
               {!isCollapsed && (
                 <div className="flex flex-col">
-                  <span className="font-bold text-slate-100 text-base tracking-tight leading-none">
+                  <span className="text-base leading-none font-bold tracking-tight text-slate-100">
                     CampusOps
                   </span>
-                  <span className="text-[10px] text-indigo-400 font-semibold tracking-wider uppercase mt-1">
+                  <span className="mt-1 text-[10px] font-semibold tracking-wider text-indigo-400 uppercase">
                     College Platform
                   </span>
                 </div>
@@ -93,19 +98,24 @@ export function Sidebar({
             <button
               type="button"
               onClick={toggleCollapse}
-              className="hidden lg:flex p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+              className="hidden rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-200 lg:flex"
               title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             >
-              {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+              {isCollapsed ? (
+                <ChevronRight className="h-4 w-4" />
+              ) : (
+                <ChevronLeft className="h-4 w-4" />
+              )}
             </button>
           </div>
 
           {/* Navigation Links */}
-          <nav className="p-3 space-y-1 overflow-y-auto max-h-[calc(100vh-140px)]">
+          <nav className="max-h-[calc(100vh-140px)] space-y-1 overflow-y-auto p-3">
             {items.map((item) => {
               const IconComponent = ICON_MAP[item.iconName] || LayoutDashboard;
               const isActive =
-                pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+                pathname === item.href ||
+                (item.href !== "/dashboard" && pathname.startsWith(item.href));
 
               return (
                 <Link
@@ -113,22 +123,26 @@ export function Sidebar({
                   href={item.href}
                   onClick={onMobileClose}
                   className={cn(
-                    "flex items-center space-x-3 px-3 py-2.5 rounded-lg font-medium text-sm transition-all duration-150 group",
+                    "group flex items-center space-x-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
                     isActive
-                      ? "bg-indigo-600/15 text-indigo-400 border border-indigo-500/30 font-semibold"
-                      : "text-slate-400 hover:text-slate-100 hover:bg-slate-800/60"
+                      ? "border border-indigo-500/30 bg-indigo-600/15 font-semibold text-indigo-400"
+                      : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-100"
                   )}
                   title={isCollapsed ? item.title : undefined}
                 >
                   <IconComponent
                     className={cn(
-                      "w-5 h-5 flex-shrink-0 transition-colors",
-                      isActive ? "text-indigo-400" : "text-slate-400 group-hover:text-slate-200"
+                      "h-5 w-5 flex-shrink-0 transition-colors",
+                      isActive
+                        ? "text-indigo-400"
+                        : "text-slate-400 group-hover:text-slate-200"
                     )}
                   />
-                  {!isCollapsed && <span className="truncate">{item.title}</span>}
+                  {!isCollapsed && (
+                    <span className="truncate">{item.title}</span>
+                  )}
                   {!isCollapsed && item.badge && (
-                    <span className="ml-auto text-[10px] bg-slate-800 text-indigo-300 font-bold px-1.5 py-0.5 rounded">
+                    <span className="ml-auto rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold text-indigo-300">
                       {item.badge}
                     </span>
                   )}
@@ -140,11 +154,14 @@ export function Sidebar({
 
         {/* Sidebar Footer Role Badge */}
         {!isCollapsed && (
-          <div className="p-4 border-t border-slate-800 bg-slate-900/50">
+          <div className="border-t border-slate-800 bg-slate-900/50 p-4">
             <div className="flex items-center space-x-2 text-xs text-slate-400">
-              <Shield className="w-4 h-4 text-indigo-400 flex-shrink-0" />
+              <Shield className="h-4 w-4 flex-shrink-0 text-indigo-400" />
               <span className="truncate">
-                Role: <strong className="text-slate-200 font-semibold">{primaryRoleCode || "authenticated"}</strong>
+                Role:{" "}
+                <strong className="font-semibold text-slate-200">
+                  {primaryRoleCode || "authenticated"}
+                </strong>
               </span>
             </div>
           </div>

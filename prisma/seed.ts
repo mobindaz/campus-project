@@ -13,7 +13,8 @@ const DEFAULT_ROLES = [
   {
     name: "Principal",
     code: "principal",
-    description: "Institutional head with college-wide approval and read access",
+    description:
+      "Institutional head with college-wide approval and read access",
     isSystem: true,
   },
   {
@@ -25,13 +26,15 @@ const DEFAULT_ROLES = [
   {
     name: "Placement Officer",
     code: "placement_officer",
-    description: "Manages placement drives, company registrations, and placement results",
+    description:
+      "Manages placement drives, company registrations, and placement results",
     isSystem: true,
   },
   {
     name: "Faculty",
     code: "faculty",
-    description: "Teaching staff with student view and clearance workflow participation",
+    description:
+      "Teaching staff with student view and clearance workflow participation",
     isSystem: true,
   },
   {
@@ -49,65 +52,244 @@ const DEFAULT_ROLES = [
   {
     name: "Student",
     code: "student",
-    description: "Student user with personal profile, placement application, and TC request access",
+    description:
+      "Student user with personal profile, placement application, and TC request access",
     isSystem: true,
   },
 ];
 
 const DEFAULT_DEPARTMENTS = [
-  { name: "Computer Science & Engineering", code: "CSE", description: "Department of Computer Science & Engineering" },
-  { name: "Mechanical Engineering", code: "MECH", description: "Department of Mechanical Engineering" },
-  { name: "Electronics & Communication Engineering", code: "ECE", description: "Department of Electronics & Communication Engineering" },
-  { name: "Civil Engineering", code: "CIVIL", description: "Department of Civil Engineering" },
-  { name: "General Engineering", code: "GEN", description: "Department of General Sciences & Humanities" },
+  {
+    name: "Computer Science & Engineering",
+    code: "CSE",
+    description: "Department of Computer Science & Engineering",
+  },
+  {
+    name: "Mechanical Engineering",
+    code: "MECH",
+    description: "Department of Mechanical Engineering",
+  },
+  {
+    name: "Electronics & Communication Engineering",
+    code: "ECE",
+    description: "Department of Electronics & Communication Engineering",
+  },
+  {
+    name: "Civil Engineering",
+    code: "CIVIL",
+    description: "Department of Civil Engineering",
+  },
+  {
+    name: "General Engineering",
+    code: "GEN",
+    description: "Department of General Sciences & Humanities",
+  },
 ];
 
 const DEFAULT_PERMISSIONS = [
   // Students module
-  { code: "students.create", name: "Create Students", module: "students", description: "Register new student records" },
-  { code: "students.read", name: "Read Students", module: "students", description: "View student profiles and records" },
-  { code: "students.update", name: "Update Students", module: "students", description: "Modify student details" },
-  { code: "students.delete", name: "Delete Students", module: "students", description: "Archive or delete student records" },
+  {
+    code: "students.create",
+    name: "Create Students",
+    module: "students",
+    description: "Register new student records",
+  },
+  {
+    code: "students.read",
+    name: "Read Students",
+    module: "students",
+    description: "View student profiles and records",
+  },
+  {
+    code: "students.update",
+    name: "Update Students",
+    module: "students",
+    description: "Modify student details",
+  },
+  {
+    code: "students.delete",
+    name: "Delete Students",
+    module: "students",
+    description: "Archive or delete student records",
+  },
 
   // Placement module
-  { code: "placement.create", name: "Create Placement Drives", module: "placement", description: "Create placement opportunities and drives" },
-  { code: "placement.read", name: "Read Placement Drives", module: "placement", description: "View placement drives and registrations" },
-  { code: "placement.update", name: "Update Placement Drives", module: "placement", description: "Modify placement drive details" },
-  { code: "placement.delete", name: "Delete Placement Drives", module: "placement", description: "Cancel or remove placement drives" },
-  { code: "placement.manage", name: "Manage Placements", module: "placement", description: "Full placement module administration" },
+  {
+    code: "placement.create",
+    name: "Create Placement Drives",
+    module: "placement",
+    description: "Create placement opportunities and drives",
+  },
+  {
+    code: "placement.read",
+    name: "Read Placement Drives",
+    module: "placement",
+    description: "View placement drives and registrations",
+  },
+  {
+    code: "placement.update",
+    name: "Update Placement Drives",
+    module: "placement",
+    description: "Modify placement drive details",
+  },
+  {
+    code: "placement.delete",
+    name: "Delete Placement Drives",
+    module: "placement",
+    description: "Cancel or remove placement drives",
+  },
+  {
+    code: "placement.manage",
+    name: "Manage Placements",
+    module: "placement",
+    description: "Full placement module administration",
+  },
 
   // TC module
-  { code: "tc.create", name: "Create TC Request", module: "tc", description: "Initiate Transfer Certificate request" },
-  { code: "tc.read", name: "Read TC Requests", module: "tc", description: "View TC requests and status" },
-  { code: "tc.update", name: "Update TC Requests", module: "tc", description: "Modify TC request details" },
-  { code: "tc.approve", name: "Approve TC Clearances", module: "tc", description: "Grant clearance approvals for TC" },
-  { code: "tc.manage", name: "Manage TC Engine", module: "tc", description: "Full TC workflow administration" },
+  {
+    code: "tc.create",
+    name: "Create TC Request",
+    module: "tc",
+    description: "Initiate Transfer Certificate request",
+  },
+  {
+    code: "tc.read",
+    name: "Read TC Requests",
+    module: "tc",
+    description: "View TC requests and status",
+  },
+  {
+    code: "tc.update",
+    name: "Update TC Requests",
+    module: "tc",
+    description: "Modify TC request details",
+  },
+  {
+    code: "tc.approve",
+    name: "Approve TC Clearances",
+    module: "tc",
+    description: "Grant clearance approvals for TC",
+  },
+  {
+    code: "tc.manage",
+    name: "Manage TC Engine",
+    module: "tc",
+    description: "Full TC workflow administration",
+  },
 
   // Department module
-  { code: "departments.create", name: "Create Departments", module: "departments", description: "Create academic departments and administrative offices" },
-  { code: "departments.read", name: "Read Departments", module: "departments", description: "View departments list and details" },
-  { code: "departments.update", name: "Update Departments", module: "departments", description: "Modify department configurations and status" },
-  { code: "departments.delete", name: "Delete Departments", module: "departments", description: "Deactivate or remove departments" },
-  { code: "departments.manage", name: "Manage Departments", module: "departments", description: "Full department module administration" },
+  {
+    code: "departments.create",
+    name: "Create Departments",
+    module: "departments",
+    description: "Create academic departments and administrative offices",
+  },
+  {
+    code: "departments.read",
+    name: "Read Departments",
+    module: "departments",
+    description: "View departments list and details",
+  },
+  {
+    code: "departments.update",
+    name: "Update Departments",
+    module: "departments",
+    description: "Modify department configurations and status",
+  },
+  {
+    code: "departments.delete",
+    name: "Delete Departments",
+    module: "departments",
+    description: "Deactivate or remove departments",
+  },
+  {
+    code: "departments.manage",
+    name: "Manage Departments",
+    module: "departments",
+    description: "Full department module administration",
+  },
 
   // Program module
-  { code: "programs.create", name: "Create Programs", module: "programs", description: "Create degree, diploma, and certificate programs" },
-  { code: "programs.read", name: "Read Programs", module: "programs", description: "View programs list and details" },
-  { code: "programs.update", name: "Update Programs", module: "programs", description: "Modify program details and status" },
-  { code: "programs.delete", name: "Delete Programs", module: "programs", description: "Deactivate or remove programs" },
-  { code: "programs.manage", name: "Manage Programs", module: "programs", description: "Full program module administration" },
+  {
+    code: "programs.create",
+    name: "Create Programs",
+    module: "programs",
+    description: "Create degree, diploma, and certificate programs",
+  },
+  {
+    code: "programs.read",
+    name: "Read Programs",
+    module: "programs",
+    description: "View programs list and details",
+  },
+  {
+    code: "programs.update",
+    name: "Update Programs",
+    module: "programs",
+    description: "Modify program details and status",
+  },
+  {
+    code: "programs.delete",
+    name: "Delete Programs",
+    module: "programs",
+    description: "Deactivate or remove programs",
+  },
+  {
+    code: "programs.manage",
+    name: "Manage Programs",
+    module: "programs",
+    description: "Full program module administration",
+  },
 
   // Platform Engines & Management
-  { code: "workflow.manage", name: "Manage Workflows", module: "workflow", description: "Configure approval chains and workflow steps" },
-  { code: "forms.manage", name: "Manage Dynamic Forms", module: "forms", description: "Create and edit dynamic form definitions" },
-  { code: "fields.manage", name: "Manage Custom Fields", module: "fields", description: "Define custom fields for entities" },
-  { code: "reports.read", name: "Read Reports", module: "reports", description: "View system reports and analytics" },
-  { code: "reports.export", name: "Export Reports", module: "reports", description: "Export reports to Excel/PDF" },
-  { code: "settings.manage", name: "Manage Platform Settings", module: "settings", description: "Manage college deployment configurations" },
+  {
+    code: "structure.manage",
+    name: "Manage Academic Structure",
+    module: "structure",
+    description: "Configure academic periods and student admission batches",
+  },
+  {
+    code: "workflow.manage",
+    name: "Manage Workflows",
+    module: "workflow",
+    description: "Configure approval chains and workflow steps",
+  },
+  {
+    code: "forms.manage",
+    name: "Manage Dynamic Forms",
+    module: "forms",
+    description: "Create and edit dynamic form definitions",
+  },
+  {
+    code: "fields.manage",
+    name: "Manage Custom Fields",
+    module: "fields",
+    description: "Define custom fields for entities",
+  },
+  {
+    code: "reports.read",
+    name: "Read Reports",
+    module: "reports",
+    description: "View system reports and analytics",
+  },
+  {
+    code: "reports.export",
+    name: "Export Reports",
+    module: "reports",
+    description: "Export reports to Excel/PDF",
+  },
+  {
+    code: "settings.manage",
+    name: "Manage Platform Settings",
+    module: "settings",
+    description: "Manage college deployment configurations",
+  },
 ];
 
 async function main() {
-  console.log("🌱 Seeding database with RBAC roles, permissions, departments, and College Admin...");
+  console.log(
+    "🌱 Seeding database with RBAC roles, permissions, departments, and College Admin..."
+  );
 
   // 1. Seed Departments
   console.log("Creating departments...");
@@ -128,7 +310,11 @@ async function main() {
   for (const roleData of DEFAULT_ROLES) {
     const role = await prisma.role.upsert({
       where: { code: roleData.code },
-      update: { name: roleData.name, description: roleData.description, isSystem: roleData.isSystem },
+      update: {
+        name: roleData.name,
+        description: roleData.description,
+        isSystem: roleData.isSystem,
+      },
       create: roleData,
     });
     roleMap.set(role.code, role.id);
@@ -141,7 +327,11 @@ async function main() {
   for (const permData of DEFAULT_PERMISSIONS) {
     const perm = await prisma.permission.upsert({
       where: { code: permData.code },
-      update: { name: permData.name, module: permData.module, description: permData.description },
+      update: {
+        name: permData.name,
+        module: permData.module,
+        description: permData.description,
+      },
       create: permData,
     });
     createdPermissions.push(perm);
@@ -164,7 +354,9 @@ async function main() {
     data: rolePermissionRecords,
     skipDuplicates: true,
   });
-  console.log(`✅ Attached ${createdPermissions.length} permissions to College Admin role.`);
+  console.log(
+    `✅ Attached ${createdPermissions.length} permissions to College Admin role.`
+  );
 
   // 5. Seed Default Admin User
   const adminEmail = "admin@college.edu";
@@ -229,7 +421,9 @@ async function main() {
       });
     }
 
-    console.log(`✅ Default College Admin user verified: ${adminEmail} (Role: College Admin, Permissions: All ${createdPermissions.length})`);
+    console.log(
+      `✅ Default College Admin user verified: ${adminEmail} (Role: College Admin, Permissions: All ${createdPermissions.length})`
+    );
   }
 
   console.log("🎉 Seeding completed successfully.");
