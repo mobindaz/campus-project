@@ -12,6 +12,7 @@ export function middleware(request: NextRequest) {
   const isPublicRoute =
     pathname.startsWith("/login") ||
     pathname.startsWith("/signup") ||
+    pathname.startsWith("/setup-wizard") ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/verify") ||
     pathname.startsWith("/_next") ||

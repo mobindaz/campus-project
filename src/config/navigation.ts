@@ -85,7 +85,7 @@ export const NAVIGATION_CONFIG: NavItem[] = [
   },
   {
     title: "Platform Settings",
-    href: "/settings",
+    href: "/settings/profile",
     iconName: "Settings",
     requiredPermission: "settings.manage",
     module: "settings",

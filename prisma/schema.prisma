@@ -214,6 +214,27 @@ model Batch {
   @@map("batches")
 }
 
+model CollegeProfile {
+  id             String   @id @default(cuid())
+  name           String   @default("Campus Operations College")
+  logoUrl        String?
+  address        String?
+  city           String?
+  state          String?
+  postalCode     String?
+  country        String?  @default("India")
+  contactEmail   String?
+  contactPhone   String?
+  website        String?
+  primaryColor   String   @default("#4F46E5")
+  secondaryColor String   @default("#06B6D4")
+  isConfigured   Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("college_profiles")
+}
+
 model UserDepartmentScope {
   id           String     @id @default(cuid())
   userId       String
