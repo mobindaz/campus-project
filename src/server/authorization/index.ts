@@ -8,14 +8,14 @@ import {
 export interface AuthorizationContext {
   departmentId?: string;
   ownerId?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface AuthUser {
   id: string;
   email?: string;
   name?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface AuthorizationResult {
@@ -44,7 +44,9 @@ export async function authorize(
   context?: AuthorizationContext
 ): Promise<AuthorizationResult> {
   if (!user || !user.id) {
-    throw new UnauthorizedError("Authentication required to perform this action.");
+    throw new UnauthorizedError(
+      "Authentication required to perform this action."
+    );
   }
 
   const [userRoles, userPermissions, userDepartmentScopes] = await Promise.all([
@@ -54,11 +56,14 @@ export async function authorize(
   ]);
 
   const roleCodes = userRoles.map((r) => r.code);
-  const isGlobalAdmin = roleCodes.some((code) => GLOBAL_SCOPE_ROLE_CODES.has(code));
+  const isGlobalAdmin = roleCodes.some((code) =>
+    GLOBAL_SCOPE_ROLE_CODES.has(code)
+  );
   const departmentIds = userDepartmentScopes.map((d) => d.id);
 
   // 1. Permission check
-  const hasPermissionCode = isGlobalAdmin || userPermissions.includes(permission);
+  const hasPermissionCode =
+    isGlobalAdmin || userPermissions.includes(permission);
   if (!hasPermissionCode) {
     throw new ForbiddenError(
       `Permission denied: Account lacks required permission '${permission}'.`

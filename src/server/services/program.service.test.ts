@@ -1,16 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   listProgramsService,
-  getProgramByIdService,
   createProgramService,
-  updateProgramService,
-  deactivateProgramService,
   deleteProgramService,
 } from "./program.service";
 import * as programRepository from "@/server/repositories/program.repository";
-import * as departmentRepository from "@/server/repositories/department.repository";
 import * as rbacService from "@/server/services/rbac.service";
-import { ForbiddenError, UnauthorizedError, ValidationError } from "@/server/errors/app-error";
+import {
+  ForbiddenError,
+  UnauthorizedError,
+  ValidationError,
+} from "@/server/errors/app-error";
 
 vi.mock("@/server/repositories/program.repository", () => ({
   listPrograms: vi.fn(),
@@ -39,8 +39,16 @@ vi.mock("@/server/services/audit.service", () => ({
 }));
 
 describe("Program Service Layer", () => {
-  const adminUser = { id: "user_admin", name: "Admin User", email: "admin@college.edu" };
-  const regularUser = { id: "user_student", name: "Student User", email: "student@college.edu" };
+  const adminUser = {
+    id: "user_admin",
+    name: "Admin User",
+    email: "admin@college.edu",
+  };
+  const regularUser = {
+    id: "user_student",
+    name: "Student User",
+    email: "student@college.edu",
+  };
 
   const mockDepartment = {
     id: "dept_cse",
@@ -48,6 +56,7 @@ describe("Program Service Layer", () => {
     code: "CSE",
     type: "ACADEMIC" as const,
     description: "CSE Dept",
+    programId: "prog_1",
     isActive: true,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -55,13 +64,12 @@ describe("Program Service Layer", () => {
 
   const mockProgram = {
     id: "prog_1",
-    name: "Bachelor of Technology in Computer Science",
-    code: "BTECH_CSE",
-    shortName: "B.Tech CSE",
+    name: "Bachelor of Technology",
+    code: "BTECH",
+    shortName: "B.Tech",
     type: "DEGREE" as const,
     durationYears: 4,
-    departmentId: "dept_cse",
-    department: mockDepartment,
+    departments: [mockDepartment],
     isActive: true,
     customFields: {},
     createdAt: new Date(),
@@ -96,7 +104,9 @@ describe("Program Service Layer", () => {
 
   describe("Authorization enforcement", () => {
     it("throws UnauthorizedError when user is missing", async () => {
-      await expect(listProgramsService(null)).rejects.toThrow(UnauthorizedError);
+      await expect(listProgramsService(null)).rejects.toThrow(
+        UnauthorizedError
+      );
       await expect(
         createProgramService(null, {
           name: "Test",
@@ -104,7 +114,6 @@ describe("Program Service Layer", () => {
           shortName: "Test Short",
           type: "DEGREE",
           durationYears: 4,
-          departmentId: "dept_cse",
           isActive: true,
         })
       ).rejects.toThrow(UnauthorizedError);
@@ -115,67 +124,68 @@ describe("Program Service Layer", () => {
       vi.mocked(rbacService.getUserPermissions).mockResolvedValue([]);
       vi.mocked(rbacService.getUserDepartmentScopes).mockResolvedValue([]);
 
-      await expect(listProgramsService(regularUser)).rejects.toThrow(ForbiddenError);
+      await expect(listProgramsService(regularUser)).rejects.toThrow(
+        ForbiddenError
+      );
     });
 
-    it("allows College Admin access and filters by department", async () => {
+    it("allows College Admin access and lists programs", async () => {
       vi.mocked(rbacService.getUserRoles).mockResolvedValue([mockAdminRole]);
       vi.mocked(rbacService.getUserPermissions).mockResolvedValue([]);
       vi.mocked(rbacService.getUserDepartmentScopes).mockResolvedValue([]);
-      vi.mocked(programRepository.listPrograms).mockResolvedValue([mockProgram]);
+      vi.mocked(programRepository.listPrograms).mockResolvedValue([
+        mockProgram,
+      ]);
 
-      const programs = await listProgramsService(adminUser, { departmentId: "dept_cse" });
+      const programs = await listProgramsService(adminUser);
       expect(programs).toHaveLength(1);
-      expect(programRepository.listPrograms).toHaveBeenCalledWith(
-        expect.objectContaining({ departmentId: "dept_cse" })
-      );
+      expect(programRepository.listPrograms).toHaveBeenCalled();
     });
   });
 
-  describe("Program Creation & Department Validation", () => {
+  describe("Program Creation & Uniqueness Validation", () => {
     beforeEach(() => {
       vi.mocked(rbacService.getUserRoles).mockResolvedValue([mockAdminRole]);
       vi.mocked(rbacService.getUserPermissions).mockResolvedValue([]);
       vi.mocked(rbacService.getUserDepartmentScopes).mockResolvedValue([]);
     });
 
-    it("throws ValidationError when specified departmentId does not exist", async () => {
-      vi.mocked(departmentRepository.findDepartmentById).mockResolvedValue(null);
+    it("throws ValidationError when program code is duplicate", async () => {
+      vi.mocked(programRepository.findProgramByCode).mockResolvedValue(
+        mockProgram
+      );
 
       await expect(
         createProgramService(adminUser, {
-          name: "B.Tech CSE",
-          code: "BTECH_CSE",
-          shortName: "B.Tech CSE",
+          name: "Bachelor of Technology",
+          code: "BTECH",
+          shortName: "B.Tech",
           type: "DEGREE",
           durationYears: 4,
-          departmentId: "non_existent_dept",
           isActive: true,
         })
       ).rejects.toThrow(ValidationError);
     });
 
-    it("creates program when department exists and program code/name are unique", async () => {
-      vi.mocked(departmentRepository.findDepartmentById).mockResolvedValue(mockDepartment);
+    it("creates program when program code and name are unique", async () => {
       vi.mocked(programRepository.findProgramByCode).mockResolvedValue(null);
       vi.mocked(programRepository.findProgramByName).mockResolvedValue(null);
       vi.mocked(programRepository.createProgram).mockResolvedValue(mockProgram);
 
       const result = await createProgramService(adminUser, {
-        name: "Bachelor of Technology in Computer Science",
-        code: "btech_cse",
-        shortName: "B.Tech CSE",
+        name: "Bachelor of Technology",
+        code: "btech",
+        shortName: "B.Tech",
         type: "DEGREE",
         durationYears: 4,
-        departmentId: "dept_cse",
         isActive: true,
       });
 
-      expect(result.code).toBe("BTECH_CSE");
+      expect(result.code).toBe("BTECH");
       expect(programRepository.createProgram).toHaveBeenCalledWith(
         expect.objectContaining({
-          name: "Bachelor of Technology in Computer Science",
-          code: "BTECH_CSE",
+          name: "Bachelor of Technology",
+          code: "BTECH",
           type: "DEGREE",
           durationYears: 4,
         })
@@ -191,7 +201,9 @@ describe("Program Service Layer", () => {
     });
 
     it("performs hard delete when reference count is 0", async () => {
-      vi.mocked(programRepository.findProgramById).mockResolvedValue(mockProgram);
+      vi.mocked(programRepository.findProgramById).mockResolvedValue(
+        mockProgram
+      );
       vi.mocked(programRepository.countProgramReferences).mockResolvedValue(0);
       vi.mocked(programRepository.deleteProgram).mockResolvedValue(mockProgram);
 

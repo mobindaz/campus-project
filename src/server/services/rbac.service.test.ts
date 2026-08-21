@@ -11,7 +11,12 @@ vi.mock("@/server/database", () => ({
   },
 }));
 
-import { getUserPermissions, hasPermission, getUserRoles, getUserDepartmentScopes } from "./rbac.service";
+import {
+  getUserPermissions,
+  hasPermission,
+  getUserRoles,
+  getUserDepartmentScopes,
+} from "./rbac.service";
 import { prisma } from "@/server/database";
 
 describe("rbac.service", () => {
@@ -46,14 +51,22 @@ describe("rbac.service", () => {
         },
       ];
 
-      (prisma.userRole.findMany as any).mockResolvedValue(mockUserRoles);
+      vi.mocked(prisma.userRole.findMany).mockResolvedValue(
+        mockUserRoles as unknown as Awaited<
+          ReturnType<typeof prisma.userRole.findMany>
+        >
+      );
 
       const perms = await getUserPermissions("user_123");
-      expect(perms).toEqual(["students.read", "students.create", "placement.read"]);
+      expect(perms).toEqual([
+        "students.read",
+        "students.create",
+        "placement.read",
+      ]);
     });
 
     it("returns empty array when user has no roles assigned", async () => {
-      (prisma.userRole.findMany as any).mockResolvedValue([]);
+      vi.mocked(prisma.userRole.findMany).mockResolvedValue([]);
 
       const perms = await getUserPermissions("user_none");
       expect(perms).toEqual([]);
@@ -62,26 +75,26 @@ describe("rbac.service", () => {
 
   describe("hasPermission", () => {
     it("returns true if user has the specified permission", async () => {
-      (prisma.userRole.findMany as any).mockResolvedValue([
+      vi.mocked(prisma.userRole.findMany).mockResolvedValue([
         {
           role: {
             rolePermissions: [{ permission: { code: "tc.approve" } }],
           },
         },
-      ]);
+      ] as unknown as Awaited<ReturnType<typeof prisma.userRole.findMany>>);
 
       const result = await hasPermission("user_123", "tc.approve");
       expect(result).toBe(true);
     });
 
     it("returns false if user does not have the specified permission", async () => {
-      (prisma.userRole.findMany as any).mockResolvedValue([
+      vi.mocked(prisma.userRole.findMany).mockResolvedValue([
         {
           role: {
             rolePermissions: [{ permission: { code: "students.read" } }],
           },
         },
-      ]);
+      ] as unknown as Awaited<ReturnType<typeof prisma.userRole.findMany>>);
 
       const result = await hasPermission("user_123", "settings.manage");
       expect(result).toBe(false);
@@ -91,7 +104,9 @@ describe("rbac.service", () => {
   describe("getUserRoles & getUserDepartmentScopes", () => {
     it("returns user roles", async () => {
       const mockRole = { id: "role_1", name: "HOD", code: "hod" };
-      (prisma.userRole.findMany as any).mockResolvedValue([{ role: mockRole }]);
+      vi.mocked(prisma.userRole.findMany).mockResolvedValue([
+        { role: mockRole },
+      ] as unknown as Awaited<ReturnType<typeof prisma.userRole.findMany>>);
 
       const roles = await getUserRoles("user_123");
       expect(roles).toEqual([mockRole]);
@@ -99,7 +114,11 @@ describe("rbac.service", () => {
 
     it("returns user department scopes", async () => {
       const mockDept = { id: "dept_1", name: "Computer Science", code: "CSE" };
-      (prisma.userDepartmentScope.findMany as any).mockResolvedValue([{ department: mockDept }]);
+      vi.mocked(prisma.userDepartmentScope.findMany).mockResolvedValue([
+        { department: mockDept },
+      ] as unknown as Awaited<
+        ReturnType<typeof prisma.userDepartmentScope.findMany>
+      >);
 
       const depts = await getUserDepartmentScopes("user_123");
       expect(depts).toEqual([mockDept]);

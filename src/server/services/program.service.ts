@@ -12,7 +12,6 @@
 
 import { authorize, AuthUser } from "@/server/authorization";
 import { NotFoundError, ValidationError } from "@/server/errors/app-error";
-import { findDepartmentById } from "@/server/repositories/department.repository";
 import {
   countProgramReferences,
   createProgram,
@@ -42,9 +41,7 @@ export async function listProgramsService(
   filters?: ProgramFilterInput
 ) {
   const validatedFilters = programFilterSchema.parse(filters || {});
-  await authorize(user, "programs.read", {
-    departmentId: validatedFilters.departmentId,
-  });
+  await authorize(user, "programs.read");
 
   return listPrograms(validatedFilters);
 }
@@ -71,23 +68,15 @@ export async function getProgramByIdService(
 }
 
 /**
- * Creates a new program under a department after validating permissions, department existence, and uniqueness rules.
+ * Creates a new top-level program (e.g. B.Tech, Diploma, BCA).
  */
 export async function createProgramService(
   user: AuthUser | null | undefined,
   input: CreateProgramInput
 ) {
-  const authResult = await authorize(user, "programs.create", {
-    departmentId: input?.departmentId,
-  });
+  const authResult = await authorize(user, "programs.create");
 
   const parsed = createProgramSchema.parse(input);
-
-  // Verify target department exists
-  const department = await findDepartmentById(parsed.departmentId);
-  if (!department) {
-    throw new ValidationError(`Associated department with ID '${parsed.departmentId}' does not exist.`);
-  }
 
   const validatedData = {
     ...parsed,
@@ -99,12 +88,16 @@ export async function createProgramService(
   // Check unique constraints
   const existingCode = await findProgramByCode(validatedData.code);
   if (existingCode) {
-    throw new ValidationError(`Program with code '${validatedData.code}' already exists.`);
+    throw new ValidationError(
+      `Program with code '${validatedData.code}' already exists.`
+    );
   }
 
   const existingName = await findProgramByName(validatedData.name);
   if (existingName) {
-    throw new ValidationError(`Program with name '${validatedData.name}' already exists.`);
+    throw new ValidationError(
+      `Program with name '${validatedData.name}' already exists.`
+    );
   }
 
   const newProgram = await createProgram({
@@ -114,10 +107,8 @@ export async function createProgramService(
     type: validatedData.type,
     durationYears: validatedData.durationYears,
     isActive: validatedData.isActive,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     customFields: (validatedData.customFields || {}) as any,
-    department: {
-      connect: { id: validatedData.departmentId },
-    },
   });
 
   await logAudit({
@@ -129,7 +120,6 @@ export async function createProgramService(
     details: {
       name: newProgram.name,
       code: newProgram.code,
-      departmentId: newProgram.departmentId,
       type: newProgram.type,
       durationYears: newProgram.durationYears,
     },
@@ -156,20 +146,11 @@ export async function updateProgramService(
   }
 
   const parsed = updateProgramSchema.parse(input);
+  const authResult = await authorize(user, "programs.update");
 
-  const targetDeptId = parsed.departmentId || existingProgram.departmentId;
-  const authResult = await authorize(user, "programs.update", {
-    departmentId: targetDeptId,
-  });
-
-  if (parsed.departmentId && parsed.departmentId !== existingProgram.departmentId) {
-    const department = await findDepartmentById(parsed.departmentId);
-    if (!department) {
-      throw new ValidationError(`Target department '${parsed.departmentId}' does not exist.`);
-    }
-  }
-
-  const validatedData: any = { ...parsed };
+  const validatedData: Partial<UpdateProgramInput> & Record<string, unknown> = {
+    ...parsed,
+  };
   if (parsed.name) validatedData.name = parsed.name.trim();
   if (parsed.code) validatedData.code = parsed.code.trim().toUpperCase();
   if (parsed.shortName) validatedData.shortName = parsed.shortName.trim();
@@ -177,14 +158,18 @@ export async function updateProgramService(
   if (validatedData.code && validatedData.code !== existingProgram.code) {
     const codeConflict = await findProgramByCode(validatedData.code);
     if (codeConflict) {
-      throw new ValidationError(`Program code '${validatedData.code}' is already taken.`);
+      throw new ValidationError(
+        `Program code '${validatedData.code}' is already taken.`
+      );
     }
   }
 
   if (validatedData.name && validatedData.name !== existingProgram.name) {
     const nameConflict = await findProgramByName(validatedData.name);
     if (nameConflict) {
-      throw new ValidationError(`Program name '${validatedData.name}' is already taken.`);
+      throw new ValidationError(
+        `Program name '${validatedData.name}' is already taken.`
+      );
     }
   }
 
@@ -200,13 +185,11 @@ export async function updateProgramService(
       before: {
         name: existingProgram.name,
         code: existingProgram.code,
-        departmentId: existingProgram.departmentId,
         isActive: existingProgram.isActive,
       },
       after: {
         name: updatedProgram.name,
         code: updatedProgram.code,
-        departmentId: updatedProgram.departmentId,
         isActive: updatedProgram.isActive,
       },
     },
@@ -231,9 +214,7 @@ export async function deactivateProgramService(
     throw new NotFoundError(`Program with ID '${id}' not found.`);
   }
 
-  const authResult = await authorize(user, "programs.update", {
-    departmentId: existingProgram.departmentId,
-  });
+  const authResult = await authorize(user, "programs.update");
 
   const deactivated = await deactivateProgram(id);
 
@@ -268,9 +249,7 @@ export async function deleteProgramService(
     throw new NotFoundError(`Program with ID '${id}' not found.`);
   }
 
-  const authResult = await authorize(user, "programs.delete", {
-    departmentId: existingProgram.departmentId,
-  });
+  const authResult = await authorize(user, "programs.delete");
 
   const refCount = await countProgramReferences(id);
 

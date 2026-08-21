@@ -98,3 +98,60 @@ export type ReorderAcademicPeriodsInput = z.infer<
 export type CreateBatchInput = z.infer<typeof createBatchSchema>;
 export type UpdateBatchInput = z.infer<typeof updateBatchSchema>;
 export type BatchFilterInput = z.infer<typeof batchFilterSchema>;
+
+export const generateAcademicPeriodsPreviewSchema = z.object({
+  durationYears: z
+    .number()
+    .int()
+    .min(1, "Duration must be at least 1 year")
+    .max(10, "Duration cannot exceed 10 years"),
+  pattern: z.enum(["SEMESTER", "YEAR"]),
+  programId: z.string().optional(),
+  departmentId: z.string().optional().nullable(),
+});
+
+export const setupWizardSubmitSchema = z.object({
+  program: z.object({
+    name: z
+      .string()
+      .min(2, "Program name must be at least 2 characters")
+      .max(100),
+    code: z
+      .string()
+      .min(2, "Program code must be at least 2 characters")
+      .max(20),
+    shortName: z
+      .string()
+      .min(2, "Short name must be at least 2 characters")
+      .max(50),
+    type: z.enum([
+      "DEGREE",
+      "DIPLOMA",
+      "POST_GRADUATE",
+      "CERTIFICATE",
+      "DOCTORAL",
+    ]),
+    durationYears: z.number().int().min(1).max(10),
+  }),
+  departments: z
+    .array(
+      z.object({
+        name: z
+          .string()
+          .min(2, "Department name must be at least 2 characters")
+          .max(100),
+        code: z
+          .string()
+          .min(2, "Department code must be at least 2 characters")
+          .max(20),
+        description: z.string().optional(),
+      })
+    )
+    .optional(),
+  periodPattern: z.enum(["SEMESTER", "YEAR"]),
+});
+
+export type GenerateAcademicPeriodsPreviewInput = z.infer<
+  typeof generateAcademicPeriodsPreviewSchema
+>;
+export type SetupWizardSubmitInput = z.infer<typeof setupWizardSubmitSchema>;

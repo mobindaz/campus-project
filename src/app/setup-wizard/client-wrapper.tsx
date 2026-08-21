@@ -1,32 +1,25 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Building2,
   BookOpen,
-  Layers,
-  ShieldCheck,
+  Building2,
+  Calendar,
   CheckCircle2,
   ChevronRight,
   ChevronLeft,
-  Wand2,
+  Plus,
+  Trash2,
   Loader2,
   Sparkles,
+  AlertCircle,
 } from "lucide-react";
-import { ProfileForm } from "@/modules/settings/components/profile-form";
 import {
-  PeriodManager,
-  ProgramOption,
-} from "@/modules/academic-structure/components/period-manager";
-import { DepartmentItem } from "@/modules/departments/components/department-list";
-import { createDepartmentAction } from "@/modules/departments/actions";
-import { createProgramAction } from "@/modules/programs/actions";
-import {
-  completeSetupWizardAction,
-  getSetupStatusAction,
-  seedDemoDataAction,
+  previewGeneratedPeriodsAction,
+  executeSetupWizardTransactionAction,
 } from "@/modules/settings/actions";
+import { AcademicPeriodPreviewItem } from "@/server/services/academic-period.service";
 
 export interface SetupWizardStatus {
   isConfigured: boolean;
@@ -45,539 +38,634 @@ export interface SetupWizardStatus {
   };
 }
 
+export interface DepartmentRow {
+  id: string;
+  name: string;
+  code: string;
+  description: string;
+}
+
 export interface SetupWizardClientWrapperProps {
   initialStatus: SetupWizardStatus;
-  initialDepartments: DepartmentItem[];
-  initialPrograms: ProgramOption[];
   currentUserEmail: string;
 }
 
 export function SetupWizardClientWrapper({
   initialStatus,
-  initialDepartments,
-  initialPrograms,
-  currentUserEmail,
 }: SetupWizardClientWrapperProps) {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState<number>(1);
-  const [status, setStatus] = useState<SetupWizardStatus>(initialStatus);
-  const [departments, setDepartments] =
-    useState<DepartmentItem[]>(initialDepartments);
-  const [programs, setPrograms] = useState<ProgramOption[]>(initialPrograms);
-  const [isSeeding, setIsSeeding] = useState(false);
-  const [isCompleting, setIsCompleting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Department creation state inside step 2
-  const [newDeptName, setNewDeptName] = useState("");
-  const [newDeptCode, setNewDeptCode] = useState("");
-  const [deptCreating, setDeptCreating] = useState(false);
+  // Step 1: Program State
+  const [progName, setProgName] = useState("Bachelor of Technology");
+  const [progCode, setProgCode] = useState("BTECH");
+  const [progShort, setProgShort] = useState("B.Tech");
+  const [progType, setProgType] = useState<
+    "DEGREE" | "DIPLOMA" | "POST_GRADUATE" | "CERTIFICATE" | "DOCTORAL"
+  >("DEGREE");
+  const [durationYears, setDurationYears] = useState<number>(4);
 
-  // Program creation state inside step 3
-  const [newProgName, setNewProgName] = useState("");
-  const [newProgCode, setNewProgCode] = useState("");
-  const [newProgShort, setNewProgShort] = useState("");
-  const [newProgDeptId, setNewProgDeptId] = useState("");
-  const [progCreating, setProgCreating] = useState(false);
+  // Step 2: Departments State (Optional)
+  const [departments, setDepartments] = useState<DepartmentRow[]>([
+    {
+      id: "dept-1",
+      name: "Computer Science & Engineering",
+      code: "CSE",
+      description: "Department of Computer Science & Engineering",
+    },
+    {
+      id: "dept-2",
+      name: "Mechanical Engineering",
+      code: "MECH",
+      description: "Department of Mechanical Engineering",
+    },
+  ]);
 
-  const refreshStatus = async () => {
-    const res = await getSetupStatusAction();
-    if (res.success && res.data) {
-      setStatus(res.data);
-    }
-  };
+  // Step 3: Period Generation State
+  const [periodPattern, setPeriodPattern] = useState<"SEMESTER" | "YEAR">(
+    "SEMESTER"
+  );
+  const [periodPreviews, setPeriodPreviews] = useState<
+    AcademicPeriodPreviewItem[]
+  >([]);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
 
-  const handleQuickCreateDepartment = async () => {
-    if (!newDeptName || !newDeptCode) return;
-    setDeptCreating(true);
-    try {
-      const res = await createDepartmentAction({
-        name: newDeptName,
-        code: newDeptCode,
-        type: "ACADEMIC",
-        isActive: true,
-        description: "Department created during setup wizard",
-      });
-      if (res.success && res.data) {
-        setDepartments((prev) => [...prev, res.data]);
-        setNewDeptName("");
-        setNewDeptCode("");
-        await refreshStatus();
+  // Fetch live preview when durationYears or periodPattern changes
+  useEffect(() => {
+    let isMounted = true;
+    async function loadPreview() {
+      setIsLoadingPreview(true);
+      try {
+        const res = await previewGeneratedPeriodsAction({
+          durationYears,
+          pattern: periodPattern,
+        });
+        if (isMounted && res.success && res.data) {
+          setPeriodPreviews(res.data);
+        }
+      } catch (err) {
+        console.error("Failed to load period preview:", err);
+      } finally {
+        if (isMounted) setIsLoadingPreview(false);
       }
-    } catch (err) {
-      console.error("Department creation failed", err);
-    } finally {
-      setDeptCreating(false);
     }
+    loadPreview();
+    return () => {
+      isMounted = false;
+    };
+  }, [durationYears, periodPattern]);
+
+  const handleAddDepartment = () => {
+    setDepartments((prev) => [
+      ...prev,
+      {
+        id: `dept-${Date.now()}`,
+        name: "",
+        code: "",
+        description: "",
+      },
+    ]);
   };
 
-  const handleQuickCreateProgram = async () => {
-    const targetDeptId = newProgDeptId || departments[0]?.id;
-    if (!newProgName || !newProgCode || !newProgShort || !targetDeptId) return;
-    setProgCreating(true);
+  const handleRemoveDepartment = (id: string) => {
+    setDepartments((prev) => prev.filter((d) => d.id !== id));
+  };
+
+  const handleDepartmentChange = (
+    id: string,
+    field: keyof DepartmentRow,
+    value: string
+  ) => {
+    setDepartments((prev) =>
+      prev.map((d) => (d.id === id ? { ...d, [field]: value } : d))
+    );
+  };
+
+  const handleFinalSubmit = async () => {
+    setIsSubmitting(true);
+    setErrorMessage(null);
+
+    // Validate valid departments
+    const validDepts = departments
+      .filter((d) => d.name.trim() !== "" && d.code.trim() !== "")
+      .map((d) => ({
+        name: d.name.trim(),
+        code: d.code.trim().toUpperCase(),
+        description: d.description.trim() || undefined,
+      }));
+
     try {
-      const res = await createProgramAction({
-        name: newProgName,
-        code: newProgCode,
-        shortName: newProgShort,
-        type: "DEGREE",
-        durationYears: 4,
-        departmentId: targetDeptId,
-        isActive: true,
+      const res = await executeSetupWizardTransactionAction({
+        program: {
+          name: progName.trim(),
+          code: progCode.trim().toUpperCase(),
+          shortName: progShort.trim(),
+          type: progType,
+          durationYears,
+        },
+        departments: validDepts,
+        periodPattern,
       });
-      if (res.success && res.data) {
-        setPrograms((prev) => [...prev, res.data]);
-        setNewProgName("");
-        setNewProgCode("");
-        setNewProgShort("");
-        await refreshStatus();
-      }
-    } catch (err) {
-      console.error("Program creation failed", err);
-    } finally {
-      setProgCreating(false);
-    }
-  };
 
-  const handleSeedDemoData = async () => {
-    setIsSeeding(true);
-    try {
-      const res = await seedDemoDataAction();
       if (res.success) {
         router.push("/dashboard");
         router.refresh();
+      } else {
+        setErrorMessage(res.error || "Failed to commit academic setup.");
       }
-    } catch (err) {
-      console.error("Demo seed failed", err);
+    } catch {
+      setErrorMessage("An unexpected error occurred while saving setup.");
     } finally {
-      setIsSeeding(false);
+      setIsSubmitting(false);
     }
   };
-
-  const handleFinishSetup = async () => {
-    setIsCompleting(true);
-    try {
-      const res = await completeSetupWizardAction();
-      if (res.success) {
-        router.push("/dashboard");
-        router.refresh();
-      }
-    } catch (err) {
-      console.error("Setup completion failed", err);
-    } finally {
-      setIsCompleting(false);
-    }
-  };
-
-  const isStep1Unlocked = true;
-  const isStep2Unlocked = Boolean(status?.profile?.name);
-  const isStep3Unlocked = (status?.counts?.deptCount || departments.length) > 0;
-  const isStep4Unlocked = (status?.counts?.programCount || programs.length) > 0;
-  const isStep5Unlocked =
-    (status?.counts?.periodCount || 0) > 0 || isStep4Unlocked;
-
-  const canGoNext =
-    (currentStep === 1 && isStep2Unlocked) ||
-    (currentStep === 2 && isStep3Unlocked) ||
-    (currentStep === 3 && isStep4Unlocked) ||
-    (currentStep === 4 && isStep5Unlocked);
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
       {/* Top Header */}
-      <header className="sticky top-0 z-40 border-b border-slate-800 bg-slate-900/60 px-6 py-4 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+      <header className="sticky top-0 z-40 border-b border-slate-800 bg-slate-900/80 px-6 py-4 backdrop-blur-md">
+        <div className="mx-auto flex max-w-5xl items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/10 p-2 text-indigo-400">
               <Sparkles className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-lg font-black tracking-tight text-slate-100">
-                First-Run Setup Wizard
+              <h1 className="text-base font-bold tracking-tight text-slate-100 sm:text-lg">
+                Academic Onboarding & Setup Wizard
               </h1>
               <p className="text-xs text-slate-400">
-                Configure deployment defaults for{" "}
+                Optional configuration for{" "}
                 <strong className="text-slate-200">
-                  {status?.profile?.name || "College Deployment"}
+                  {initialStatus?.profile?.name || "College Deployment"}
                 </strong>
               </p>
             </div>
           </div>
 
-          {/* Dev Demo Skip Button */}
-          {status?.allowSkipEnv && (
-            <button
-              type="button"
-              disabled={isSeeding}
-              onClick={handleSeedDemoData}
-              className="flex items-center space-x-2 rounded-xl border border-amber-500/30 bg-amber-500/15 px-4 py-2 text-xs font-bold text-amber-300 shadow-lg shadow-amber-500/10 transition-all hover:bg-amber-500/25"
-            >
-              {isSeeding ? (
-                <Loader2 className="h-4 w-4 animate-spin text-amber-400" />
-              ) : (
-                <Wand2 className="h-4 w-4 text-amber-400" />
-              )}
-              <span>Skip & Seed Demo Data</span>
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => router.push("/dashboard")}
+            className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-xs font-semibold text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-200"
+          >
+            Skip to Dashboard
+          </button>
         </div>
       </header>
 
-      {/* Main Body */}
-      <main className="mx-auto w-full max-w-6xl flex-1 space-y-8 p-6">
-        {/* Step Progress Bar */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-5">
+      {/* Main Container */}
+      <main className="mx-auto w-full max-w-5xl flex-1 space-y-8 p-6">
+        {/* Step Indicator */}
+        <div className="grid grid-cols-3 gap-3">
           {[
             {
               step: 1,
-              title: "1. College Profile",
-              icon: Building2,
-              unlocked: isStep1Unlocked,
+              title: "1. Program Definition",
+              subtitle: "Degree type & duration",
+              icon: BookOpen,
             },
             {
               step: 2,
-              title: "2. Department",
-              icon: BookOpen,
-              unlocked: isStep2Unlocked,
+              title: "2. Departments (Optional)",
+              subtitle: "Specialization branches",
+              icon: Building2,
             },
             {
               step: 3,
-              title: "3. Program",
-              icon: BookOpen,
-              unlocked: isStep3Unlocked,
-            },
-            {
-              step: 4,
-              title: "4. Structure",
-              icon: Layers,
-              unlocked: isStep4Unlocked,
-            },
-            {
-              step: 5,
-              title: "5. Admin User",
-              icon: ShieldCheck,
-              unlocked: isStep5Unlocked,
+              title: "3. Periods & Preview",
+              subtitle: "Continuous terms & commit",
+              icon: Calendar,
             },
           ].map((item) => {
             const Icon = item.icon;
             const isActive = currentStep === item.step;
+            const isCompleted = currentStep > item.step;
             return (
               <button
                 key={item.step}
                 type="button"
-                disabled={!item.unlocked}
                 onClick={() => setCurrentStep(item.step)}
-                className={`flex items-center space-x-3 rounded-2xl border p-3 text-left transition-all ${
+                className={`flex items-center space-x-3 rounded-2xl border p-4 text-left transition-all ${
                   isActive
                     ? "border-indigo-500 bg-indigo-600/15 font-bold text-indigo-300 shadow-lg shadow-indigo-600/10"
-                    : item.unlocked
-                      ? "cursor-pointer border-slate-800 bg-slate-900/60 text-slate-300 hover:bg-slate-800/60"
-                      : "cursor-not-allowed border-slate-900 bg-slate-950/40 text-slate-600 opacity-50"
+                    : isCompleted
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                      : "border-slate-800 bg-slate-900/40 text-slate-500 hover:bg-slate-800/40"
                 }`}
               >
                 <div
-                  className={`flex h-8 w-8 items-center justify-center rounded-xl font-mono text-xs font-bold ${
+                  className={`flex h-9 w-9 items-center justify-center rounded-xl font-mono text-xs font-bold ${
                     isActive
                       ? "bg-indigo-600 text-white"
-                      : item.unlocked
-                        ? "bg-slate-800 text-indigo-400"
-                        : "bg-slate-950 text-slate-700"
+                      : isCompleted
+                        ? "bg-emerald-600 text-white"
+                        : "bg-slate-800 text-slate-600"
                   }`}
                 >
-                  <Icon className="h-4 w-4" />
+                  {isCompleted ? (
+                    <CheckCircle2 className="h-4 w-4" />
+                  ) : (
+                    <Icon className="h-4 w-4" />
+                  )}
                 </div>
-                <span className="truncate text-xs font-semibold">
-                  {item.title}
-                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-bold text-slate-100">
+                    {item.title}
+                  </p>
+                  <p className="truncate text-[11px] text-slate-400">
+                    {item.subtitle}
+                  </p>
+                </div>
               </button>
             );
           })}
         </div>
 
-        {/* Step Content Panes */}
-        <div className="space-y-6 rounded-3xl border border-slate-800 bg-slate-900/40 p-6 shadow-2xl backdrop-blur-md md:p-8">
-          {/* STEP 1: College Profile */}
+        {/* Error Alert */}
+        {errorMessage && (
+          <div className="flex items-start space-x-3 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-xs text-red-400">
+            <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+        )}
+
+        {/* Form Body Box */}
+        <div className="space-y-6 rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-2xl backdrop-blur-md sm:p-8">
+          {/* STEP 1: Program Definition */}
           {currentStep === 1 && (
             <div className="space-y-6">
               <div className="border-b border-slate-800 pb-4">
                 <h2 className="text-lg font-bold text-slate-100">
-                  Step 1: Configure College Profile
+                  Step 1: Configure Academic Program
                 </h2>
                 <p className="mt-1 text-xs text-slate-400">
-                  Set the college name, address, contact numbers, and branding
-                  palette.
+                  Define the top-level degree or course category (e.g., B.Tech,
+                  Diploma, BCA, MBA).
                 </p>
               </div>
 
-              <ProfileForm
-                initialProfile={
-                  status?.profile || {
-                    name: "",
-                    primaryColor: "#4F46E5",
-                    secondaryColor: "#06B6D4",
-                  }
-                }
-                onSuccess={refreshStatus}
-              />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {/* Program Name */}
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="text-xs font-semibold text-slate-300">
+                    Program Name <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={progName}
+                    onChange={(e) => setProgName(e.target.value)}
+                    placeholder="e.g. Bachelor of Technology"
+                    className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-sm text-slate-100 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/40 focus:outline-none"
+                  />
+                  <p className="text-[11px] text-slate-500">
+                    Do not include department names in program name (e.g.
+                    &quot;B.Tech&quot; NOT &quot;B.Tech Computer Science&quot;).
+                  </p>
+                </div>
+
+                {/* Program Code */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">
+                    Code <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={progCode}
+                    onChange={(e) => setProgCode(e.target.value.toUpperCase())}
+                    placeholder="e.g. BTECH"
+                    className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 font-mono text-sm text-slate-100 uppercase focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/40 focus:outline-none"
+                  />
+                </div>
+
+                {/* Short Name */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">
+                    Short Name <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={progShort}
+                    onChange={(e) => setProgShort(e.target.value)}
+                    placeholder="e.g. B.Tech"
+                    className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-sm text-slate-100 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/40 focus:outline-none"
+                  />
+                </div>
+
+                {/* Award Type */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">
+                    Award Type <span className="text-red-400">*</span>
+                  </label>
+                  <select
+                    value={progType}
+                    onChange={(e) =>
+                      setProgType(
+                        e.target.value as
+                          | "DEGREE"
+                          | "DIPLOMA"
+                          | "POST_GRADUATE"
+                          | "CERTIFICATE"
+                          | "DOCTORAL"
+                      )
+                    }
+                    className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-sm text-slate-100 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/40 focus:outline-none"
+                  >
+                    <option value="DEGREE">Degree</option>
+                    <option value="DIPLOMA">Diploma</option>
+                    <option value="POST_GRADUATE">Post Graduate</option>
+                    <option value="CERTIFICATE">Certificate</option>
+                    <option value="DOCTORAL">Doctoral</option>
+                  </select>
+                </div>
+
+                {/* Program Duration */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">
+                    Program Duration (Years){" "}
+                    <span className="text-red-400">*</span>
+                  </label>
+                  <select
+                    value={durationYears}
+                    onChange={(e) => setDurationYears(Number(e.target.value))}
+                    className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-sm font-semibold text-indigo-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/40 focus:outline-none"
+                  >
+                    {[1, 2, 3, 4, 5, 6].map((yrs) => (
+                      <option key={yrs} value={yrs}>
+                        {yrs} {yrs === 1 ? "Year" : "Years"}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
           )}
 
-          {/* STEP 2: First Department */}
+          {/* STEP 2: Departments Configuration (Optional) */}
           {currentStep === 2 && (
             <div className="space-y-6">
-              <div className="border-b border-slate-800 pb-4">
-                <h2 className="text-lg font-bold text-slate-100">
-                  Step 2: Create First Department
-                </h2>
-                <p className="mt-1 text-xs text-slate-400">
-                  Add your institution&apos;s first academic department (e.g.
-                  Computer Science & Engineering).
-                </p>
-              </div>
-
-              {departments.length > 0 ? (
-                <div className="space-y-2 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
-                  <div className="flex items-center space-x-2 text-sm font-bold text-emerald-400">
-                    <CheckCircle2 className="h-5 w-5" />
-                    <span>Department Configured</span>
-                  </div>
-                  <p className="text-xs text-slate-300">
-                    Existing Department:{" "}
-                    <strong className="text-white">
-                      {departments[0].name} ({departments[0].code})
+              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-100">
+                    Step 2: Add Specialization Departments (Optional)
+                  </h2>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Add branches under{" "}
+                    <strong className="text-indigo-400">
+                      {progName || "Program"}
                     </strong>
+                    . Standalone programs (like BCA) can skip adding
+                    departments.
                   </p>
                 </div>
+                <button
+                  type="button"
+                  onClick={handleAddDepartment}
+                  className="flex items-center space-x-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-1.5 text-xs font-semibold text-indigo-400 hover:bg-indigo-500/20"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>Add Department</span>
+                </button>
+              </div>
+
+              {departments.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-slate-800 p-8 text-center">
+                  <Building2 className="mx-auto h-8 w-8 text-slate-600" />
+                  <p className="mt-2 text-xs text-slate-400">
+                    No departments added. This program will be configured as a
+                    standalone program.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleAddDepartment}
+                    className="mt-3 inline-flex items-center space-x-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-500"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>Add First Department</span>
+                  </button>
+                </div>
               ) : (
-                <div className="max-w-md space-y-4 rounded-2xl border border-slate-800 bg-slate-950 p-5">
-                  <h3 className="text-xs font-semibold text-slate-300">
-                    Add Primary Academic Department
-                  </h3>
-                  <div className="space-y-3">
-                    <input
-                      type="text"
-                      placeholder="Department Name (e.g. Computer Science & Engineering)"
-                      value={newDeptName}
-                      onChange={(e) => setNewDeptName(e.target.value)}
-                      className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-100"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Code (e.g. CSE)"
-                      value={newDeptCode}
-                      onChange={(e) =>
-                        setNewDeptCode(e.target.value.toUpperCase())
-                      }
-                      className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 font-mono text-xs text-slate-100 uppercase"
-                    />
-                    <button
-                      type="button"
-                      disabled={deptCreating || !newDeptName || !newDeptCode}
-                      onClick={handleQuickCreateDepartment}
-                      className="flex w-full items-center justify-center space-x-2 rounded-xl bg-indigo-600 py-2 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
+                <div className="space-y-3">
+                  {departments.map((dept, index) => (
+                    <div
+                      key={dept.id}
+                      className="grid grid-cols-1 gap-3 rounded-2xl border border-slate-800 bg-slate-950 p-4 sm:grid-cols-12 sm:items-center"
                     >
-                      {deptCreating && (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      )}
-                      <span>Save Department</span>
-                    </button>
-                  </div>
+                      <div className="sm:col-span-5">
+                        <label className="text-[11px] font-semibold text-slate-400">
+                          Department Name #{index + 1}
+                        </label>
+                        <input
+                          type="text"
+                          value={dept.name}
+                          onChange={(e) =>
+                            handleDepartmentChange(
+                              dept.id,
+                              "name",
+                              e.target.value
+                            )
+                          }
+                          placeholder="e.g. Computer Science & Engineering"
+                          className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-100 focus:border-indigo-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-3">
+                        <label className="text-[11px] font-semibold text-slate-400">
+                          Code
+                        </label>
+                        <input
+                          type="text"
+                          value={dept.code}
+                          onChange={(e) =>
+                            handleDepartmentChange(
+                              dept.id,
+                              "code",
+                              e.target.value.toUpperCase()
+                            )
+                          }
+                          placeholder="e.g. CSE"
+                          className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 font-mono text-xs text-slate-100 uppercase focus:border-indigo-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-3">
+                        <label className="text-[11px] font-semibold text-slate-400">
+                          Description
+                        </label>
+                        <input
+                          type="text"
+                          value={dept.description}
+                          onChange={(e) =>
+                            handleDepartmentChange(
+                              dept.id,
+                              "description",
+                              e.target.value
+                            )
+                          }
+                          placeholder="Optional notes"
+                          className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-100 focus:border-indigo-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div className="flex justify-end sm:col-span-1 sm:pt-4">
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveDepartment(dept.id)}
+                          className="p-1.5 text-slate-500 hover:text-red-400"
+                          title="Remove department"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
           )}
 
-          {/* STEP 3: First Program */}
+          {/* STEP 3: Period Generation & Live Interactive Preview */}
           {currentStep === 3 && (
             <div className="space-y-6">
               <div className="border-b border-slate-800 pb-4">
                 <h2 className="text-lg font-bold text-slate-100">
-                  Step 3: Create First Degree Program
+                  Step 3: Period Generation & Live Preview
                 </h2>
                 <p className="mt-1 text-xs text-slate-400">
-                  Add a program under your department (e.g. B.Tech Computer
-                  Science).
+                  Select period type. Semesters are numbered continuously across
+                  the complete {durationYears}-year program.
                 </p>
               </div>
 
-              {programs.length > 0 ? (
-                <div className="space-y-2 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
-                  <div className="flex items-center space-x-2 text-sm font-bold text-emerald-400">
-                    <CheckCircle2 className="h-5 w-5" />
-                    <span>Program Configured</span>
-                  </div>
-                  <p className="text-xs text-slate-300">
-                    Existing Program:{" "}
-                    <strong className="text-white">
-                      {programs[0].name} ({programs[0].code})
-                    </strong>
-                  </p>
+              {/* Period Pattern Selector */}
+              <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-slate-800 bg-slate-950 p-4">
+                <span className="text-xs font-semibold text-slate-300">
+                  Period Structure:
+                </span>
+                <div className="flex items-center space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setPeriodPattern("SEMESTER")}
+                    className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+                      periodPattern === "SEMESTER"
+                        ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
+                        : "border border-slate-800 bg-slate-900 text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    Semester Mode ({durationYears * 2} Semesters)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPeriodPattern("YEAR")}
+                    className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+                      periodPattern === "YEAR"
+                        ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
+                        : "border border-slate-800 bg-slate-900 text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    Year Mode ({durationYears} Years)
+                  </button>
                 </div>
-              ) : (
-                <div className="max-w-md space-y-4 rounded-2xl border border-slate-800 bg-slate-950 p-5">
-                  <h3 className="text-xs font-semibold text-slate-300">
-                    Add Primary Degree Program
+              </div>
+
+              {/* Live Preview Table */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold tracking-wider text-slate-400 uppercase">
+                    Generated Periods Preview ({periodPreviews.length} terms)
                   </h3>
-                  <div className="space-y-3">
-                    <input
-                      type="text"
-                      placeholder="Program Name (e.g. Bachelor of Technology in CSE)"
-                      value={newProgName}
-                      onChange={(e) => setNewProgName(e.target.value)}
-                      className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-100"
-                    />
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        type="text"
-                        placeholder="Code (BTECH_CSE)"
-                        value={newProgCode}
-                        onChange={(e) =>
-                          setNewProgCode(e.target.value.toUpperCase())
-                        }
-                        className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 font-mono text-xs text-slate-100 uppercase"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Short Name (B.Tech)"
-                        value={newProgShort}
-                        onChange={(e) => setNewProgShort(e.target.value)}
-                        className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-100"
-                      />
-                    </div>
+                  {isLoadingPreview && (
+                    <Loader2 className="h-4 w-4 animate-spin text-indigo-400" />
+                  )}
+                </div>
 
-                    {departments.length > 1 && (
-                      <select
-                        value={newProgDeptId || departments[0]?.id || ""}
-                        onChange={(e) => setNewProgDeptId(e.target.value)}
-                        className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-100"
-                      >
-                        {departments.map((d) => (
-                          <option key={d.id} value={d.id}>
-                            {d.name} ({d.code})
-                          </option>
-                        ))}
-                      </select>
-                    )}
+                <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950">
+                  <table className="w-full border-collapse text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-800 bg-slate-900/60 font-semibold text-slate-400">
+                        <th className="px-4 py-3">Academic Year</th>
+                        <th className="px-4 py-3">Period Number</th>
+                        <th className="px-4 py-3">Display Name</th>
+                        <th className="px-4 py-3">System Code</th>
+                        <th className="px-4 py-3 text-right">Order Index</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 text-slate-300">
+                      {periodPreviews.map((p) => (
+                        <tr key={p.code} className="hover:bg-slate-900/40">
+                          <td className="px-4 py-2.5 font-semibold text-indigo-400">
+                            Year {p.yearNumber}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            {p.pattern === "SEMESTER"
+                              ? `Semester ${p.periodNumber}`
+                              : `Year ${p.periodNumber}`}
+                          </td>
+                          <td className="px-4 py-2.5 font-medium text-slate-100">
+                            {p.name}
+                          </td>
+                          <td className="px-4 py-2.5 font-mono font-bold text-slate-400">
+                            {p.code}
+                          </td>
+                          <td className="px-4 py-2.5 text-right font-mono text-slate-500">
+                            #{p.orderIndex}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
 
-                    <button
-                      type="button"
-                      disabled={
-                        progCreating ||
-                        !newProgName ||
-                        !newProgCode ||
-                        !newProgShort
-                      }
-                      onClick={handleQuickCreateProgram}
-                      className="flex w-full items-center justify-center space-x-2 rounded-xl bg-indigo-600 py-2 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
-                    >
-                      {progCreating && (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      )}
-                      <span>Save Program</span>
-                    </button>
+              {/* Commitment Summary Box */}
+              <div className="space-y-3 rounded-2xl border border-indigo-500/20 bg-indigo-500/10 p-5">
+                <div className="flex items-center space-x-2 text-sm font-bold text-indigo-300">
+                  <CheckCircle2 className="h-5 w-5 text-indigo-400" />
+                  <span>Onboarding Structure Summary</span>
+                </div>
+                <div className="grid grid-cols-1 gap-3 text-xs text-slate-300 sm:grid-cols-3">
+                  <div>
+                    <span className="text-slate-400">Program:</span>{" "}
+                    <strong className="text-white">
+                      {progName} ({progCode})
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Departments:</span>{" "}
+                    <strong className="text-white">
+                      {departments.filter((d) => d.name.trim() !== "").length}{" "}
+                      specializations
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Academic Terms:</span>{" "}
+                    <strong className="font-bold text-emerald-400">
+                      {periodPreviews.length} {periodPattern.toLowerCase()}s
+                    </strong>
                   </div>
                 </div>
-              )}
-            </div>
-          )}
-
-          {/* STEP 4: First Academic Structure */}
-          {currentStep === 4 && (
-            <div className="space-y-6">
-              <div className="border-b border-slate-800 pb-4">
-                <h2 className="text-lg font-bold text-slate-100">
-                  Step 4: Configure Academic Periods
-                </h2>
-                <p className="mt-1 text-xs text-slate-400">
-                  Configure academic periods (e.g. 8 Semesters or 4 Years) for
-                  your program.
-                </p>
-              </div>
-
-              {programs.length > 0 ? (
-                <PeriodManager
-                  programs={programs}
-                  initialProgramId={programs[0].id}
-                />
-              ) : (
-                <p className="text-xs text-amber-400">
-                  Please create at least 1 Program in Step 3 before configuring
-                  academic structure.
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* STEP 5: Admin Account & Final Verification */}
-          {currentStep === 5 && (
-            <div className="space-y-6">
-              <div className="border-b border-slate-800 pb-4">
-                <h2 className="text-lg font-bold text-slate-100">
-                  Step 5: Verify Administrator & Complete Setup
-                </h2>
-                <p className="mt-1 text-xs text-slate-400">
-                  Verify administrator account credentials and launch your
-                  deployment.
-                </p>
-              </div>
-
-              <div className="max-w-lg space-y-4 rounded-2xl border border-slate-800 bg-slate-950 p-5">
-                <div className="flex items-center space-x-3 text-sm font-bold text-indigo-400">
-                  <ShieldCheck className="h-5 w-5" />
-                  <span>College Administrator User Verified</span>
-                </div>
-
-                <div className="space-y-1.5 text-xs text-slate-300">
-                  <p>
-                    • Admin Email:{" "}
-                    <strong className="font-mono text-white">
-                      {currentUserEmail}
-                    </strong>
-                  </p>
-                  <p>
-                    • Department Scope:{" "}
-                    <strong className="font-semibold text-white">
-                      Full Institutional Scope
-                    </strong>
-                  </p>
-                  <p>
-                    • System Role:{" "}
-                    <strong className="font-semibold text-indigo-400">
-                      College Admin
-                    </strong>
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  disabled={isCompleting}
-                  onClick={handleFinishSetup}
-                  className="flex w-full items-center justify-center space-x-2 rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-600/20 transition-all hover:bg-emerald-500 disabled:opacity-50"
-                >
-                  {isCompleting && <Loader2 className="h-4 w-4 animate-spin" />}
-                  <span>Complete Setup & Launch Dashboard</span>
-                </button>
               </div>
             </div>
           )}
 
-          {/* Bottom Step Navigation Bar */}
+          {/* Navigation & Action Bar */}
           <div className="flex items-center justify-between border-t border-slate-800 pt-6">
             <button
               type="button"
-              disabled={currentStep === 1}
+              disabled={currentStep === 1 || isSubmitting}
               onClick={() => setCurrentStep((prev) => Math.max(1, prev - 1))}
-              className="flex items-center space-x-1.5 rounded-xl bg-slate-800/50 px-4 py-2 text-xs font-semibold text-slate-400 transition-all hover:bg-slate-800 hover:text-slate-200 disabled:opacity-30"
+              className="flex items-center space-x-1.5 rounded-xl bg-slate-800/60 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 disabled:opacity-30"
             >
               <ChevronLeft className="h-4 w-4" />
-              <span>Previous Step</span>
+              <span>Back</span>
             </button>
 
-            {currentStep < 5 ? (
+            {currentStep < 3 ? (
               <button
                 type="button"
-                disabled={!canGoNext}
-                onClick={() => setCurrentStep((prev) => Math.min(5, prev + 1))}
-                className="flex items-center space-x-1.5 rounded-xl bg-indigo-600 px-5 py-2 text-xs font-semibold text-white shadow-lg shadow-indigo-600/20 transition-all hover:bg-indigo-500 disabled:opacity-40"
+                onClick={() => setCurrentStep((prev) => Math.min(3, prev + 1))}
+                className="flex items-center space-x-1.5 rounded-xl bg-indigo-600 px-5 py-2 text-xs font-semibold text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500"
               >
                 <span>Next Step</span>
                 <ChevronRight className="h-4 w-4" />
@@ -585,12 +673,16 @@ export function SetupWizardClientWrapper({
             ) : (
               <button
                 type="button"
-                disabled={isCompleting}
-                onClick={handleFinishSetup}
-                className="flex items-center space-x-1.5 rounded-xl bg-emerald-600 px-6 py-2 text-xs font-bold text-white shadow-lg shadow-emerald-600/20 transition-all hover:bg-emerald-500 disabled:opacity-50"
+                disabled={isSubmitting}
+                onClick={handleFinalSubmit}
+                className="flex items-center space-x-2 rounded-xl bg-emerald-600 px-6 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-600/25 hover:bg-emerald-500 disabled:opacity-50"
               >
-                {isCompleting && <Loader2 className="h-4 w-4 animate-spin" />}
-                <span>Finish Setup</span>
+                {isSubmitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-white" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4 text-white" />
+                )}
+                <span>Save & Commit Academic Setup</span>
               </button>
             )}
           </div>

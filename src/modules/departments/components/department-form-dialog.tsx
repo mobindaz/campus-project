@@ -3,23 +3,28 @@
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  createDepartmentSchema,
-  CreateDepartmentInput,
-} from "../schemas";
+import { createDepartmentSchema, CreateDepartmentInput } from "../schemas";
 import { createDepartmentAction, updateDepartmentAction } from "../actions";
 import { X, Building2, AlertCircle, Loader2 } from "lucide-react";
+
+export interface ProgramOption {
+  id: string;
+  name: string;
+  code: string;
+}
 
 export interface DepartmentFormDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  programs?: ProgramOption[];
   departmentToEdit?: {
     id: string;
     name: string;
     code: string;
     type: "ACADEMIC" | "ADMINISTRATIVE";
     description?: string | null;
+    programId?: string | null;
     isActive: boolean;
   } | null;
 }
@@ -28,6 +33,7 @@ export function DepartmentFormDialog({
   isOpen,
   onClose,
   onSuccess,
+  programs = [],
   departmentToEdit,
 }: DepartmentFormDialogProps) {
   const isEditing = Boolean(departmentToEdit);
@@ -47,6 +53,7 @@ export function DepartmentFormDialog({
       code: "",
       type: "ACADEMIC",
       description: "",
+      programId: null,
       isActive: true,
     },
   });
@@ -58,6 +65,7 @@ export function DepartmentFormDialog({
         code: departmentToEdit.code,
         type: departmentToEdit.type,
         description: departmentToEdit.description || "",
+        programId: departmentToEdit.programId || null,
         isActive: departmentToEdit.isActive,
       });
     } else {
@@ -66,10 +74,10 @@ export function DepartmentFormDialog({
         code: "",
         type: "ACADEMIC",
         description: "",
+        programId: null,
         isActive: true,
       });
     }
-    setServerError(null);
   }, [departmentToEdit, isOpen, reset]);
 
   if (!isOpen) return null;
@@ -96,7 +104,7 @@ export function DepartmentFormDialog({
           setServerError(result.error || "Failed to create department.");
         }
       }
-    } catch (err: any) {
+    } catch {
       setServerError("An unexpected network error occurred.");
     } finally {
       setIsSubmitting(false);
@@ -104,13 +112,13 @@ export function DepartmentFormDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+    <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm duration-200">
+      <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/50">
+        <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/50 px-6 py-4">
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-indigo-500/10 rounded-xl text-indigo-400 border border-indigo-500/20">
-              <Building2 className="w-5 h-5" />
+            <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/10 p-2 text-indigo-400">
+              <Building2 className="h-5 w-5" />
             </div>
             <div>
               <h2 className="text-lg font-bold text-slate-100">
@@ -118,31 +126,54 @@ export function DepartmentFormDialog({
               </h2>
               <p className="text-xs text-slate-400">
                 {isEditing
-                  ? "Update department parameters and status"
-                  : "Add an academic department or administrative office"}
+                  ? "Update department parameters, parent program, and status"
+                  : "Add a branch/specialization under a Program or administrative office"}
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-200 rounded-lg hover:bg-slate-800 transition-colors"
+            className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-200"
           >
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Server Error Alert */}
         {serverError && (
-          <div className="mx-6 mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start space-x-2 text-red-400 text-xs">
-            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <div className="mx-6 mt-4 flex items-start space-x-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-400">
+            <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
             <span>{serverError}</span>
           </div>
         )}
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 p-6">
+          {/* Parent Program Selection (Optional) */}
+          {programs.length > 0 && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-300">
+                Parent Program{" "}
+                <span className="text-slate-500">(Optional)</span>
+              </label>
+              <select
+                {...register("programId")}
+                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/40 focus:outline-none"
+              >
+                <option value="">
+                  None (Independent / General Department)
+                </option>
+                {programs.map((prog) => (
+                  <option key={prog.id} value={prog.id}>
+                    {prog.name} ({prog.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {/* Name */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-300">
@@ -150,12 +181,14 @@ export function DepartmentFormDialog({
               </label>
               <input
                 type="text"
-                placeholder="e.g. Mechanical Engineering"
+                placeholder="e.g. Computer Science & Engineering"
                 {...register("name")}
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500"
+                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/40 focus:outline-none"
               />
               {errors.name && (
-                <p className="text-[11px] text-red-400">{errors.name.message}</p>
+                <p className="text-[11px] text-red-400">
+                  {errors.name.message}
+                </p>
               )}
             </div>
 
@@ -166,13 +199,15 @@ export function DepartmentFormDialog({
               </label>
               <input
                 type="text"
-                placeholder="e.g. MECH"
+                placeholder="e.g. CSE"
                 {...register("code")}
                 onChange={(e) => setValue("code", e.target.value.toUpperCase())}
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm font-mono text-slate-100 uppercase placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500"
+                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 font-mono text-sm text-slate-100 uppercase placeholder:text-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/40 focus:outline-none"
               />
               {errors.code && (
-                <p className="text-[11px] text-red-400">{errors.code.message}</p>
+                <p className="text-[11px] text-red-400">
+                  {errors.code.message}
+                </p>
               )}
             </div>
           </div>
@@ -184,10 +219,12 @@ export function DepartmentFormDialog({
             </label>
             <select
               {...register("type")}
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500"
+              className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/40 focus:outline-none"
             >
-              <option value="ACADEMIC">Academic Department (Teaches Students, Programs, Degrees)</option>
-              <option value="ADMINISTRATIVE">Administrative Office (Finance, Placement, Admissions, Library)</option>
+              <option value="ACADEMIC">Academic Branch / Specialization</option>
+              <option value="ADMINISTRATIVE">
+                Administrative Office (Finance, Placement, Admissions, Library)
+              </option>
             </select>
             {errors.type && (
               <p className="text-[11px] text-red-400">{errors.type.message}</p>
@@ -203,10 +240,12 @@ export function DepartmentFormDialog({
               rows={3}
               placeholder="Brief description of the department..."
               {...register("description")}
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500 resize-none"
+              className="w-full resize-none rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/40 focus:outline-none"
             />
             {errors.description && (
-              <p className="text-[11px] text-red-400">{errors.description.message}</p>
+              <p className="text-[11px] text-red-400">
+                {errors.description.message}
+              </p>
             )}
           </div>
 
@@ -216,28 +255,31 @@ export function DepartmentFormDialog({
               type="checkbox"
               id="isActive"
               {...register("isActive")}
-              className="w-4 h-4 rounded bg-slate-950 border-slate-800 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-slate-900"
+              className="h-4 w-4 rounded border-slate-800 bg-slate-950 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-slate-900"
             />
-            <label htmlFor="isActive" className="text-sm font-medium text-slate-300 cursor-pointer">
+            <label
+              htmlFor="isActive"
+              className="cursor-pointer text-sm font-medium text-slate-300"
+            >
               Active Status (Enabled for enrollment and clearance workflows)
             </label>
           </div>
 
           {/* Dialog Actions */}
-          <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-800">
+          <div className="flex items-center justify-end space-x-3 border-t border-slate-800 pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-slate-400 hover:text-slate-200 bg-slate-800/50 hover:bg-slate-800 rounded-xl transition-colors"
+              className="rounded-xl bg-slate-800/50 px-4 py-2 text-sm font-medium text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-200"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-5 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 rounded-xl transition-colors shadow-lg shadow-indigo-600/20 flex items-center space-x-2"
+              className="flex items-center space-x-2 rounded-xl bg-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 transition-colors hover:bg-indigo-500 disabled:opacity-50"
             >
-              {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
               <span>{isEditing ? "Save Changes" : "Create Department"}</span>
             </button>
           </div>

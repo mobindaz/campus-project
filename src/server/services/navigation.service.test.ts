@@ -17,18 +17,22 @@ vi.mock("@/server/services/rbac.service", () => ({
 }));
 
 describe("Navigation Service (getAuthorizedNavigation)", () => {
-  const mockUser = { id: "usr_101", name: "Test User", email: "test@college.edu" };
+  const mockUser = {
+    id: "usr_101",
+    name: "Test User",
+    email: "test@college.edu",
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it("returns only un-permissioned Dashboard item for user with zero permissions", async () => {
-    (rbacService.getUserRoles as any).mockResolvedValue([
+    vi.mocked(rbacService.getUserRoles).mockResolvedValue([
       { id: "role_student", code: "student", name: "Student" },
-    ]);
-    (rbacService.getUserDepartmentScopes as any).mockResolvedValue([]);
-    (authModule.can as any).mockResolvedValue(false);
+    ] as unknown as Awaited<ReturnType<typeof rbacService.getUserRoles>>);
+    vi.mocked(rbacService.getUserDepartmentScopes).mockResolvedValue([]);
+    vi.mocked(authModule.can).mockResolvedValue(false);
 
     const nav = await getAuthorizedNavigation(mockUser);
 
@@ -38,11 +42,11 @@ describe("Navigation Service (getAuthorizedNavigation)", () => {
   });
 
   it("returns full navigation list for College Admin user", async () => {
-    (rbacService.getUserRoles as any).mockResolvedValue([
+    vi.mocked(rbacService.getUserRoles).mockResolvedValue([
       { id: "role_admin", code: "college_admin", name: "College Admin" },
-    ]);
-    (rbacService.getUserDepartmentScopes as any).mockResolvedValue([]);
-    (authModule.can as any).mockResolvedValue(true);
+    ] as unknown as Awaited<ReturnType<typeof rbacService.getUserRoles>>);
+    vi.mocked(rbacService.getUserDepartmentScopes).mockResolvedValue([]);
+    vi.mocked(authModule.can).mockResolvedValue(true);
 
     const nav = await getAuthorizedNavigation(mockUser);
 
@@ -53,16 +57,20 @@ describe("Navigation Service (getAuthorizedNavigation)", () => {
   });
 
   it("returns filtered navigation list for user with selective permissions", async () => {
-    (rbacService.getUserRoles as any).mockResolvedValue([
+    vi.mocked(rbacService.getUserRoles).mockResolvedValue([
       { id: "role_hod", code: "hod", name: "HOD" },
-    ]);
-    (rbacService.getUserDepartmentScopes as any).mockResolvedValue([
+    ] as unknown as Awaited<ReturnType<typeof rbacService.getUserRoles>>);
+    vi.mocked(rbacService.getUserDepartmentScopes).mockResolvedValue([
       { id: "dept_cse", code: "CSE", name: "Computer Science" },
-    ]);
+    ] as unknown as Awaited<
+      ReturnType<typeof rbacService.getUserDepartmentScopes>
+    >);
 
-    (authModule.can as any).mockImplementation(async (_user: any, permission: string) => {
-      return permission === "students.read" || permission === "tc.read";
-    });
+    vi.mocked(authModule.can).mockImplementation(
+      async (_user: unknown, permission: string) => {
+        return permission === "students.read" || permission === "tc.read";
+      }
+    );
 
     const nav = await getAuthorizedNavigation(mockUser);
 

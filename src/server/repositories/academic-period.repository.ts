@@ -10,7 +10,6 @@ export async function findAcademicPeriodById(id: string) {
           id: true,
           name: true,
           code: true,
-          departmentId: true,
         },
       },
     },

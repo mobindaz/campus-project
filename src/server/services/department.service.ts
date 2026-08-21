@@ -90,12 +90,28 @@ export async function createDepartmentService(
   // Check unique constraints
   const existingCode = await findDepartmentByCode(validatedData.code);
   if (existingCode) {
-    throw new ValidationError(`Department with code '${validatedData.code}' already exists.`);
+    throw new ValidationError(
+      `Department with code '${validatedData.code}' already exists.`
+    );
   }
 
   const existingName = await findDepartmentByName(validatedData.name);
   if (existingName) {
-    throw new ValidationError(`Department with name '${validatedData.name}' already exists.`);
+    throw new ValidationError(
+      `Department with name '${validatedData.name}' already exists.`
+    );
+  }
+
+  // Verify parent program exists if programId is provided
+  if (parsed.programId) {
+    const { findProgramById } =
+      await import("@/server/repositories/program.repository");
+    const program = await findProgramById(parsed.programId);
+    if (!program) {
+      throw new ValidationError(
+        `Associated program with ID '${parsed.programId}' does not exist.`
+      );
+    }
   }
 
   const newDepartment = await createDepartment(validatedData);
@@ -110,6 +126,7 @@ export async function createDepartmentService(
       name: newDepartment.name,
       code: newDepartment.code,
       type: newDepartment.type,
+      programId: newDepartment.programId,
       isActive: newDepartment.isActive,
     },
   });
@@ -147,14 +164,18 @@ export async function updateDepartmentService(
   if (validatedData.code && validatedData.code !== existingDepartment.code) {
     const codeConflict = await findDepartmentByCode(validatedData.code);
     if (codeConflict) {
-      throw new ValidationError(`Department code '${validatedData.code}' is already taken.`);
+      throw new ValidationError(
+        `Department code '${validatedData.code}' is already taken.`
+      );
     }
   }
 
   if (validatedData.name && validatedData.name !== existingDepartment.name) {
     const nameConflict = await findDepartmentByName(validatedData.name);
     if (nameConflict) {
-      throw new ValidationError(`Department name '${validatedData.name}' is already taken.`);
+      throw new ValidationError(
+        `Department name '${validatedData.name}' is already taken.`
+      );
     }
   }
 

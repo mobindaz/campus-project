@@ -1,7 +1,7 @@
 import React from "react";
 import { requireAuth } from "@/server/services/auth.service";
 import { authorize } from "@/server/authorization";
-import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardTitle, CardDescription } from "@/components/ui/card";
 import { BarChart3 } from "lucide-react";
 
 export default async function ReportsPage() {
@@ -11,23 +11,24 @@ export default async function ReportsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-3">
-          <BarChart3 className="w-8 h-8 text-indigo-400" />
+        <h1 className="flex items-center gap-3 text-3xl font-bold tracking-tight text-white">
+          <BarChart3 className="h-8 w-8 text-indigo-400" />
           Reports & Analytics
         </h1>
-        <p className="text-slate-400 mt-1">
+        <p className="mt-1 text-slate-400">
           System analytics, placement statistics, and clearance reports.
         </p>
       </div>
 
-      <Card className="border-slate-800 bg-slate-900/60 p-8 text-center border-dashed">
+      <Card className="border-dashed border-slate-800 bg-slate-900/60 p-8 text-center">
         <div className="flex flex-col items-center justify-center space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
-            <BarChart3 className="w-6 h-6" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-indigo-500/20 bg-indigo-500/10 text-indigo-400">
+            <BarChart3 className="h-6 w-6" />
           </div>
           <CardTitle className="text-xl text-white">Reporting Engine</CardTitle>
           <CardDescription className="max-w-md text-slate-400">
-            Placement success metrics, TC clearance bottleneck reports, and Excel export tools will be implemented in Phase 9.
+            Placement success metrics, TC clearance bottleneck reports, and
+            Excel export tools will be implemented in Phase 9.
           </CardDescription>
         </div>
       </Card>

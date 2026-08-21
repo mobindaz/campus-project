@@ -3,7 +3,7 @@ import { hashPassword } from "better-auth/crypto";
 
 const prisma = new PrismaClient();
 
-const DEFAULT_ROLES = [
+export const DEFAULT_ROLES = [
   {
     name: "College Admin",
     code: "college_admin",
@@ -58,35 +58,7 @@ const DEFAULT_ROLES = [
   },
 ];
 
-const DEFAULT_DEPARTMENTS = [
-  {
-    name: "Computer Science & Engineering",
-    code: "CSE",
-    description: "Department of Computer Science & Engineering",
-  },
-  {
-    name: "Mechanical Engineering",
-    code: "MECH",
-    description: "Department of Mechanical Engineering",
-  },
-  {
-    name: "Electronics & Communication Engineering",
-    code: "ECE",
-    description: "Department of Electronics & Communication Engineering",
-  },
-  {
-    name: "Civil Engineering",
-    code: "CIVIL",
-    description: "Department of Civil Engineering",
-  },
-  {
-    name: "General Engineering",
-    code: "GEN",
-    description: "Department of General Sciences & Humanities",
-  },
-];
-
-const DEFAULT_PERMISSIONS = [
+export const DEFAULT_PERMISSIONS = [
   // Students module
   {
     code: "students.create",
@@ -286,29 +258,58 @@ const DEFAULT_PERMISSIONS = [
   },
 ];
 
-async function main() {
+export const DEMO_PROGRAMS = [
+  {
+    name: "Bachelor of Technology",
+    code: "BTECH",
+    shortName: "B.Tech",
+    type: "DEGREE" as const,
+    durationYears: 4,
+  },
+  {
+    name: "Diploma in Engineering",
+    code: "DIPLOMA",
+    shortName: "Diploma",
+    type: "DIPLOMA" as const,
+    durationYears: 3,
+  },
+  {
+    name: "Bachelor of Computer Applications",
+    code: "BCA",
+    shortName: "BCA",
+    type: "DEGREE" as const,
+    durationYears: 3,
+  },
+];
+
+export const DEMO_DEPARTMENTS = [
+  {
+    name: "Computer Science & Engineering",
+    code: "CSE",
+    description: "Department of Computer Science & Engineering",
+    programCode: "BTECH",
+  },
+  {
+    name: "Mechanical Engineering",
+    code: "MECH",
+    description: "Department of Mechanical Engineering",
+    programCode: "BTECH",
+  },
+];
+
+/**
+ * Executes core initial system reference data seeding.
+ * Ensures initial database contains only essential RBAC, profile, and initial demo admin account.
+ */
+export async function seedSystemReferenceData(db: PrismaClient = prisma) {
   console.log(
-    "🌱 Seeding database with RBAC roles, permissions, departments, and College Admin..."
+    "🌱 Seeding System Reference Data (RBAC roles, permissions, initial admin)..."
   );
 
-  // 1. Seed Departments
-  console.log("Creating departments...");
-  const createdDepartments = [];
-  for (const dept of DEFAULT_DEPARTMENTS) {
-    const department = await prisma.department.upsert({
-      where: { code: dept.code },
-      update: { name: dept.name, description: dept.description },
-      create: dept,
-    });
-    createdDepartments.push(department);
-  }
-  console.log(`✅ Seeded ${createdDepartments.length} departments.`);
-
-  // 2. Seed Roles
-  console.log("Creating default roles...");
+  // 1. Seed Roles
   const roleMap = new Map<string, string>();
   for (const roleData of DEFAULT_ROLES) {
-    const role = await prisma.role.upsert({
+    const role = await db.role.upsert({
       where: { code: roleData.code },
       update: {
         name: roleData.name,
@@ -319,13 +320,11 @@ async function main() {
     });
     roleMap.set(role.code, role.id);
   }
-  console.log(`✅ Seeded ${roleMap.size} roles.`);
 
-  // 3. Seed Permissions
-  console.log("Creating default permissions...");
+  // 2. Seed Permissions
   const createdPermissions = [];
   for (const permData of DEFAULT_PERMISSIONS) {
-    const perm = await prisma.permission.upsert({
+    const perm = await db.permission.upsert({
       where: { code: permData.code },
       update: {
         name: permData.name,
@@ -336,42 +335,49 @@ async function main() {
     });
     createdPermissions.push(perm);
   }
-  console.log(`✅ Seeded ${createdPermissions.length} permissions.`);
 
-  // 4. Attach ALL permissions to College Admin role using batch createMany
+  // 3. Attach ALL permissions to College Admin role
   const collegeAdminRoleId = roleMap.get("college_admin");
   if (!collegeAdminRoleId) {
     throw new Error("College Admin role missing.");
   }
 
-  console.log("Attaching all permissions to College Admin role...");
   const rolePermissionRecords = createdPermissions.map((perm) => ({
     roleId: collegeAdminRoleId,
     permissionId: perm.id,
   }));
 
-  await prisma.rolePermission.createMany({
+  await db.rolePermission.createMany({
     data: rolePermissionRecords,
     skipDuplicates: true,
   });
-  console.log(
-    `✅ Attached ${createdPermissions.length} permissions to College Admin role.`
-  );
 
-  // 5. Seed Default Admin User
+  // 4. Ensure Initial College Profile
+  let profile = await db.collegeProfile.findFirst();
+  if (!profile) {
+    profile = await db.collegeProfile.create({
+      data: {
+        name: "Campus Operations Platform",
+        primaryColor: "#4F46E5",
+        secondaryColor: "#06B6D4",
+        isConfigured: false,
+      },
+    });
+  }
+
+  // 5. Seed Initial Demo/Development Admin User with hashed password
   const adminEmail = "admin@college.edu";
-  const adminName = "College Administrator";
+  const adminName = "Demo Administrator";
   const adminPassword = "Admin@12345";
 
-  let adminUser = await prisma.user.findUnique({
+  let adminUser = await db.user.findUnique({
     where: { email: adminEmail },
   });
 
   if (!adminUser) {
-    console.log("Creating default College Admin user...");
     const hashedPassword = await hashPassword(adminPassword);
 
-    adminUser = await prisma.user.create({
+    adminUser = await db.user.create({
       data: {
         name: adminName,
         email: adminEmail,
@@ -388,8 +394,7 @@ async function main() {
   }
 
   if (adminUser) {
-    // Ensure UserRole mapping for College Admin
-    await prisma.userRole.upsert({
+    await db.userRole.upsert({
       where: {
         userId_roleId: {
           userId: adminUser.id,
@@ -402,39 +407,77 @@ async function main() {
         roleId: collegeAdminRoleId,
       },
     });
+  }
 
-    // Ensure Department scope mapping for College Admin
-    const cseDepartment = createdDepartments.find((d) => d.code === "CSE");
-    if (cseDepartment) {
-      await prisma.userDepartmentScope.upsert({
-        where: {
-          userId_departmentId: {
-            userId: adminUser.id,
-            departmentId: cseDepartment.id,
-          },
-        },
-        update: {},
-        create: {
-          userId: adminUser.id,
-          departmentId: cseDepartment.id,
-        },
-      });
-    }
+  return {
+    rolesCount: roleMap.size,
+    permissionsCount: createdPermissions.length,
+    adminUserId: adminUser?.id,
+  };
+}
 
+/**
+ * Optional demo academic data seeding (enabled ONLY when SEED_DEMO_DATA=true is set).
+ */
+export async function seedDemoAcademicData(db: PrismaClient = prisma) {
+  console.log("📦 Seeding Demo Academic Data (SEED_DEMO_DATA=true)...");
+  const programMap = new Map<string, string>();
+
+  for (const prog of DEMO_PROGRAMS) {
+    const program = await db.program.upsert({
+      where: { code: prog.code },
+      update: {
+        name: prog.name,
+        shortName: prog.shortName,
+        type: prog.type,
+        durationYears: prog.durationYears,
+      },
+      create: prog,
+    });
+    programMap.set(program.code, program.id);
+  }
+
+  for (const dept of DEMO_DEPARTMENTS) {
+    const programId = programMap.get(dept.programCode) || null;
+    await db.department.upsert({
+      where: { code: dept.code },
+      update: {
+        name: dept.name,
+        description: dept.description,
+        programId,
+      },
+      create: {
+        name: dept.name,
+        code: dept.code,
+        description: dept.description,
+        programId,
+      },
+    });
+  }
+}
+
+async function main() {
+  await seedSystemReferenceData(prisma);
+
+  if (process.env.SEED_DEMO_DATA === "true") {
+    await seedDemoAcademicData(prisma);
+  } else {
     console.log(
-      `✅ Default College Admin user verified: ${adminEmail} (Role: College Admin, Permissions: All ${createdPermissions.length})`
+      "ℹ️ Skipped demo academic data seeding (clean production install)."
     );
   }
 
   console.log("🎉 Seeding completed successfully.");
 }
 
-main()
-  .then(async () => {
-    await prisma.$disconnect();
-  })
-  .catch(async (e) => {
-    console.error("❌ Error during database seeding:", e);
-    await prisma.$disconnect();
-    process.exit(1);
-  });
+if (require.main === module) {
+  main()
+    .then(async () => {
+      await prisma.$disconnect();
+    })
+    .catch(async (e) => {
+      console.error("❌ Error during database seeding:", e);
+      await prisma.$disconnect();
+      process.exit(1);
+    });
+}

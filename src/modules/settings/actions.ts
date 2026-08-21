@@ -1,4 +1,3 @@
-"use 'server'";
 "use server";
 
 import { revalidatePath } from "next/cache";
@@ -8,7 +7,6 @@ import {
   completeSetupWizardService,
   getCollegeProfileService,
   getSetupWizardStatusService,
-  seedDemoDataService,
   updateCollegeProfileService,
 } from "@/server/services/college-profile.service";
 import { getUploadPresignedUrl } from "@/server/storage";
@@ -111,13 +109,16 @@ export async function completeSetupWizardAction() {
   }
 }
 
-export async function seedDemoDataAction() {
+export async function previewGeneratedPeriodsAction(input: {
+  durationYears: number;
+  pattern: "SEMESTER" | "YEAR";
+}) {
   try {
     const session = await getSession();
-    const profile = await seedDemoDataService(session?.user);
-    revalidatePath("/");
-    revalidatePath("/dashboard");
-    return { success: true, data: profile };
+    const { previewGeneratedPeriodsService } =
+      await import("@/server/services/academic-period.service");
+    const periods = await previewGeneratedPeriodsService(session?.user, input);
+    return { success: true, data: periods };
   } catch (error: unknown) {
     if (error instanceof AppError) {
       return {
@@ -127,7 +128,40 @@ export async function seedDemoDataAction() {
       };
     }
     const message =
-      error instanceof Error ? error.message : "Failed to seed demo data.";
+      error instanceof Error ? error.message : "Failed to preview periods.";
+    return { success: false, error: message };
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function executeSetupWizardTransactionAction(input: any) {
+  try {
+    const session = await getSession();
+    const { executeSetupWizardTransactionService } =
+      await import("@/server/services/academic-period.service");
+    const result = await executeSetupWizardTransactionService(
+      session?.user,
+      input
+    );
+    revalidatePath("/");
+    revalidatePath("/dashboard");
+    revalidatePath("/setup-wizard");
+    revalidatePath("/programs");
+    revalidatePath("/departments");
+    revalidatePath("/academic-structure");
+    return { success: true, data: result };
+  } catch (error: unknown) {
+    if (error instanceof AppError) {
+      return {
+        success: false,
+        error: error.message,
+        statusCode: error.statusCode,
+      };
+    }
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Failed to execute setup wizard.";
     return { success: false, error: message };
   }
 }

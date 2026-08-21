@@ -17,7 +17,10 @@ export const createProgramSchema = z.object({
     .string()
     .min(2, "Program code must be at least 2 characters")
     .max(20, "Program code must not exceed 20 characters")
-    .regex(/^[A-Za-z0-9_-]+$/, "Code can only contain letters, numbers, underscores, and hyphens"),
+    .regex(
+      /^[A-Za-z0-9_-]+$/,
+      "Code can only contain letters, numbers, underscores, and hyphens"
+    ),
   shortName: z
     .string()
     .min(2, "Short name must be at least 2 characters")
@@ -28,7 +31,6 @@ export const createProgramSchema = z.object({
     .int("Duration in years must be a whole number")
     .min(1, "Duration must be at least 1 year")
     .max(10, "Duration cannot exceed 10 years"),
-  departmentId: z.string().min(1, "Department selection is required"),
   isActive: z.boolean(),
   customFields: z.record(z.string(), z.any()).optional(),
 });
@@ -36,7 +38,6 @@ export const createProgramSchema = z.object({
 export const updateProgramSchema = createProgramSchema.partial();
 
 export const programFilterSchema = z.object({
-  departmentId: z.string().optional(),
   type: programTypeSchema.optional(),
   includeInactive: z.boolean().optional(),
   search: z.string().optional(),

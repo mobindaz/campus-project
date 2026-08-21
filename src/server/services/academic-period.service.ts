@@ -36,7 +36,215 @@ import {
   ReorderAcademicPeriodsInput,
   updateAcademicPeriodSchema,
   UpdateAcademicPeriodInput,
+  generateAcademicPeriodsPreviewSchema,
+  GenerateAcademicPeriodsPreviewInput,
+  setupWizardSubmitSchema,
+  SetupWizardSubmitInput,
 } from "@/modules/academic-structure/schemas";
+
+export interface AcademicPeriodPreviewItem {
+  yearNumber: number;
+  periodNumber: number;
+  name: string;
+  code: string;
+  pattern: "SEMESTER" | "YEAR";
+  orderIndex: number;
+}
+
+/**
+ * Pure generator function to calculate continuous academic periods based on duration and pattern.
+ * - SEMESTER mode: durationYears * 2 periods with continuous semester numbers 1..N across years.
+ * - YEAR mode: durationYears periods (Year 1, Year 2, Year 3).
+ */
+export function generatePeriodListPreview(
+  durationYears: number,
+  pattern: "SEMESTER" | "YEAR"
+): AcademicPeriodPreviewItem[] {
+  const items: AcademicPeriodPreviewItem[] = [];
+
+  if (pattern === "SEMESTER") {
+    const totalSemesters = durationYears * 2;
+    for (let i = 0; i < totalSemesters; i++) {
+      const semNumber = i + 1;
+      const yearNumber = Math.floor(i / 2) + 1;
+      items.push({
+        yearNumber,
+        periodNumber: semNumber,
+        name: `Year ${yearNumber} - Semester ${semNumber}`,
+        code: `SEM_${semNumber}`,
+        pattern: "SEMESTER",
+        orderIndex: semNumber,
+      });
+    }
+  } else {
+    for (let i = 0; i < durationYears; i++) {
+      const yearNumber = i + 1;
+      items.push({
+        yearNumber,
+        periodNumber: yearNumber,
+        name: `Year ${yearNumber}`,
+        code: `YR_${yearNumber}`,
+        pattern: "YEAR",
+        orderIndex: yearNumber,
+      });
+    }
+  }
+
+  return items;
+}
+
+/**
+ * Returns a live preview of academic periods to be generated without modifying database.
+ */
+export async function previewGeneratedPeriodsService(
+  user: AuthUser | null | undefined,
+  input: GenerateAcademicPeriodsPreviewInput
+) {
+  await authorize(user, "structure.manage");
+  const parsed = generateAcademicPeriodsPreviewSchema.parse(input);
+  return generatePeriodListPreview(parsed.durationYears, parsed.pattern);
+}
+
+/**
+ * Executes Setup Wizard onboarding atomically using a Prisma transaction.
+ * Detects existing Programs, Departments, and Periods to avoid duplicate records.
+ */
+export async function executeSetupWizardTransactionService(
+  user: AuthUser | null | undefined,
+  input: SetupWizardSubmitInput
+) {
+  const authResult = await authorize(user, "settings.manage");
+  const parsed = setupWizardSubmitSchema.parse(input);
+
+  const { prisma } = await import("@/server/database");
+
+  return prisma.$transaction(async (tx) => {
+    // 1. Ensure Program (avoid duplicate Program by code or name)
+    const progCode = parsed.program.code.trim().toUpperCase();
+    const progName = parsed.program.name.trim();
+
+    let program = await tx.program.findFirst({
+      where: {
+        OR: [{ code: progCode }, { name: progName }],
+      },
+    });
+
+    if (!program) {
+      program = await tx.program.create({
+        data: {
+          name: progName,
+          code: progCode,
+          shortName: parsed.program.shortName.trim(),
+          type: parsed.program.type,
+          durationYears: parsed.program.durationYears,
+          isActive: true,
+        },
+      });
+    } else {
+      // Update duration & type on existing program
+      program = await tx.program.update({
+        where: { id: program.id },
+        data: {
+          durationYears: parsed.program.durationYears,
+          type: parsed.program.type,
+        },
+      });
+    }
+
+    // 2. Ensure Departments (avoid duplicate Department by code or name)
+    const createdDepts = [];
+    if (parsed.departments && parsed.departments.length > 0) {
+      for (const d of parsed.departments) {
+        const dCode = d.code.trim().toUpperCase();
+        const dName = d.name.trim();
+
+        let dept = await tx.department.findFirst({
+          where: {
+            OR: [{ code: dCode }, { name: dName }],
+          },
+        });
+
+        if (!dept) {
+          dept = await tx.department.create({
+            data: {
+              name: dName,
+              code: dCode,
+              description: d.description?.trim() || null,
+              type: "ACADEMIC",
+              programId: program.id,
+              isActive: true,
+            },
+          });
+        } else {
+          dept = await tx.department.update({
+            where: { id: dept.id },
+            data: {
+              programId: program.id,
+            },
+          });
+        }
+        createdDepts.push(dept);
+      }
+    }
+
+    // 3. Generate & Create Academic Periods (avoid duplicate periods by programId_code)
+    const periodPreviews = generatePeriodListPreview(
+      program.durationYears,
+      parsed.periodPattern
+    );
+
+    const createdPeriods = [];
+    for (const item of periodPreviews) {
+      let period = await tx.academicPeriod.findUnique({
+        where: {
+          programId_code: {
+            programId: program.id,
+            code: item.code,
+          },
+        },
+      });
+
+      if (!period) {
+        period = await tx.academicPeriod.create({
+          data: {
+            name: item.name,
+            code: item.code,
+            pattern: item.pattern,
+            orderIndex: item.orderIndex,
+            programId: program.id,
+            isActive: true,
+          },
+        });
+      }
+      createdPeriods.push(period);
+    }
+
+    // 4. Mark College Profile as configured
+    await tx.collegeProfile.updateMany({
+      data: { isConfigured: true },
+    });
+
+    await logAudit({
+      userId: authResult.userId,
+      userEmail: user?.email,
+      action: "SETUP_WIZARD_EXECUTE",
+      entity: "Program",
+      entityId: program.id,
+      details: {
+        programCode: program.code,
+        departmentCount: createdDepts.length,
+        periodCount: createdPeriods.length,
+        pattern: parsed.periodPattern,
+      },
+    });
+
+    return {
+      program,
+      departments: createdDepts,
+      periods: createdPeriods,
+    };
+  });
+}
 
 /**
  * Lists all academic periods configured for a program ordered by index.
@@ -55,9 +263,7 @@ export async function listAcademicPeriodsService(
     throw new NotFoundError(`Program with ID '${programId}' not found.`);
   }
 
-  await authorize(user, "programs.read", {
-    departmentId: program.departmentId,
-  });
+  await authorize(user, "programs.read");
 
   return listAcademicPeriodsByProgram(programId, includeInactive);
 }
@@ -78,9 +284,7 @@ export async function createAcademicPeriodService(
     );
   }
 
-  const authResult = await authorize(user, "structure.manage", {
-    departmentId: program.departmentId,
-  });
+  const authResult = await authorize(user, "structure.manage");
 
   const validatedData = {
     ...parsed,
@@ -132,9 +336,7 @@ export async function generateDefaultPeriodsService(
     );
   }
 
-  const authResult = await authorize(user, "structure.manage", {
-    departmentId: program.departmentId,
-  });
+  const authResult = await authorize(user, "structure.manage");
 
   const existingPeriods = await listAcademicPeriodsByProgram(
     parsed.programId,
@@ -211,9 +413,7 @@ export async function updateAcademicPeriodService(
     throw new NotFoundError(`Academic period with ID '${id}' not found.`);
   }
 
-  const authResult = await authorize(user, "structure.manage", {
-    departmentId: existingPeriod.program.departmentId,
-  });
+  const authResult = await authorize(user, "structure.manage");
 
   const parsed = updateAcademicPeriodSchema.parse(input);
   const validatedData: UpdateAcademicPeriodInput = { ...parsed };
@@ -251,9 +451,7 @@ export async function reorderAcademicPeriodsService(
     throw new ValidationError(`Program '${parsed.programId}' not found.`);
   }
 
-  const authResult = await authorize(user, "structure.manage", {
-    departmentId: program.departmentId,
-  });
+  const authResult = await authorize(user, "structure.manage");
 
   await reorderAcademicPeriods(parsed.programId, parsed.orderedIds);
 
@@ -292,9 +490,7 @@ export async function deactivateAcademicPeriodService(
     throw new NotFoundError(`Academic period with ID '${id}' not found.`);
   }
 
-  const authResult = await authorize(user, "structure.manage", {
-    departmentId: existingPeriod.program.departmentId,
-  });
+  const authResult = await authorize(user, "structure.manage");
 
   const deactivated = await deactivateAcademicPeriod(id);
 
@@ -326,9 +522,7 @@ export async function deleteAcademicPeriodService(
     throw new NotFoundError(`Academic period with ID '${id}' not found.`);
   }
 
-  const authResult = await authorize(user, "structure.manage", {
-    departmentId: existingPeriod.program.departmentId,
-  });
+  const authResult = await authorize(user, "structure.manage");
 
   const refCount = await countAcademicPeriodReferences(id);
 

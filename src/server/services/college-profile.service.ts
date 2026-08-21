@@ -184,7 +184,23 @@ export async function seedDemoDataService(user: AuthUser | null | undefined) {
     isConfigured: true,
   });
 
-  // 2. Ensure Demo Department
+  // 2. Ensure Demo Program (B.Tech)
+  let btechProg = await prisma.program.findUnique({
+    where: { code: "BTECH" },
+  });
+  if (!btechProg) {
+    btechProg = await prisma.program.create({
+      data: {
+        name: "Bachelor of Technology",
+        code: "BTECH",
+        shortName: "B.Tech",
+        type: "DEGREE",
+        durationYears: 4,
+      },
+    });
+  }
+
+  // 3. Ensure Demo Department (CSE under B.Tech)
   let cseDept = await prisma.department.findUnique({ where: { code: "CSE" } });
   if (!cseDept) {
     cseDept = await prisma.department.create({
@@ -193,23 +209,7 @@ export async function seedDemoDataService(user: AuthUser | null | undefined) {
         code: "CSE",
         type: "ACADEMIC",
         description: "Department of Computer Science & Engineering",
-      },
-    });
-  }
-
-  // 3. Ensure Demo Program
-  let btechProg = await prisma.program.findUnique({
-    where: { code: "BTECH_CSE" },
-  });
-  if (!btechProg) {
-    btechProg = await prisma.program.create({
-      data: {
-        name: "Bachelor of Technology in Computer Science",
-        code: "BTECH_CSE",
-        shortName: "B.Tech CSE",
-        type: "DEGREE",
-        durationYears: 4,
-        departmentId: cseDept.id,
+        programId: btechProg.id,
       },
     });
   }

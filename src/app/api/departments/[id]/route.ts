@@ -17,7 +17,7 @@ export async function GET(
 
     const department = await getDepartmentByIdService(session?.user, id);
     return NextResponse.json({ success: true, data: department });
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof AppError) {
       return NextResponse.json(
         { success: false, error: error.message, code: error.code },
@@ -42,7 +42,7 @@ export async function PATCH(
 
     const department = await updateDepartmentService(session?.user, id, body);
     return NextResponse.json({ success: true, data: department });
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof AppError) {
       return NextResponse.json(
         { success: false, error: error.message, code: error.code },
@@ -66,7 +66,7 @@ export async function DELETE(
 
     const result = await deleteDepartmentService(session?.user, id);
     return NextResponse.json({ success: true, data: result });
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof AppError) {
       return NextResponse.json(
         { success: false, error: error.message, code: error.code },

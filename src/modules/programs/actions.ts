@@ -1,4 +1,3 @@
-"use 'server'";
 "use server";
 
 import { revalidatePath } from "next/cache";
@@ -22,11 +21,18 @@ export async function getProgramsAction(filters?: ProgramFilterInput) {
     const session = await getSession();
     const programs = await listProgramsService(session?.user, filters);
     return { success: true, data: programs };
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof AppError) {
-      return { success: false, error: error.message, statusCode: error.statusCode };
+      return {
+        success: false,
+        error: error.message,
+        statusCode: error.statusCode,
+      };
     }
-    return { success: false, error: "An unexpected error occurred while fetching programs." };
+    return {
+      success: false,
+      error: "An unexpected error occurred while fetching programs.",
+    };
   }
 }
 
@@ -36,25 +42,42 @@ export async function createProgramAction(input: CreateProgramInput) {
     const program = await createProgramService(session?.user, input);
     revalidatePath("/programs");
     return { success: true, data: program };
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof AppError) {
-      return { success: false, error: error.message, statusCode: error.statusCode };
+      return {
+        success: false,
+        error: error.message,
+        statusCode: error.statusCode,
+      };
     }
-    return { success: false, error: "An unexpected error occurred while creating program." };
+    return {
+      success: false,
+      error: "An unexpected error occurred while creating program.",
+    };
   }
 }
 
-export async function updateProgramAction(id: string, input: UpdateProgramInput) {
+export async function updateProgramAction(
+  id: string,
+  input: UpdateProgramInput
+) {
   try {
     const session = await getSession();
     const program = await updateProgramService(session?.user, id, input);
     revalidatePath("/programs");
     return { success: true, data: program };
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof AppError) {
-      return { success: false, error: error.message, statusCode: error.statusCode };
+      return {
+        success: false,
+        error: error.message,
+        statusCode: error.statusCode,
+      };
     }
-    return { success: false, error: "An unexpected error occurred while updating program." };
+    return {
+      success: false,
+      error: "An unexpected error occurred while updating program.",
+    };
   }
 }
 
@@ -64,11 +87,18 @@ export async function deactivateProgramAction(id: string) {
     const program = await deactivateProgramService(session?.user, id);
     revalidatePath("/programs");
     return { success: true, data: program };
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof AppError) {
-      return { success: false, error: error.message, statusCode: error.statusCode };
+      return {
+        success: false,
+        error: error.message,
+        statusCode: error.statusCode,
+      };
     }
-    return { success: false, error: "An unexpected error occurred while deactivating program." };
+    return {
+      success: false,
+      error: "An unexpected error occurred while deactivating program.",
+    };
   }
 }
 
@@ -78,10 +108,17 @@ export async function deleteProgramAction(id: string) {
     const result = await deleteProgramService(session?.user, id);
     revalidatePath("/programs");
     return { success: true, data: result };
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof AppError) {
-      return { success: false, error: error.message, statusCode: error.statusCode };
+      return {
+        success: false,
+        error: error.message,
+        statusCode: error.statusCode,
+      };
     }
-    return { success: false, error: "An unexpected error occurred while deleting program." };
+    return {
+      success: false,
+      error: "An unexpected error occurred while deleting program.",
+    };
   }
 }

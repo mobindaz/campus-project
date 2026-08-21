@@ -11,37 +11,42 @@ export interface UserPermissionResult {
  * Retrieves all assigned active permissions for a user across all their assigned roles.
  */
 export async function getUserPermissions(userId: string): Promise<string[]> {
-  const userRoles = await prisma.userRole.findMany({
-    where: {
-      userId,
-      role: {
-        isActive: true,
+  try {
+    const userRoles = await prisma.userRole.findMany({
+      where: {
+        userId,
+        role: {
+          isActive: true,
+        },
       },
-    },
-    include: {
-      role: {
-        include: {
-          rolePermissions: {
-            include: {
-              permission: true,
+      include: {
+        role: {
+          include: {
+            rolePermissions: {
+              include: {
+                permission: true,
+              },
             },
           },
         },
       },
-    },
-  });
+    });
 
-  const permissionCodes = new Set<string>();
+    const permissionCodes = new Set<string>();
 
-  for (const ur of userRoles) {
-    for (const rp of ur.role.rolePermissions) {
-      if (rp.permission?.code) {
-        permissionCodes.add(rp.permission.code);
+    for (const ur of userRoles) {
+      for (const rp of ur.role.rolePermissions) {
+        if (rp.permission?.code) {
+          permissionCodes.add(rp.permission.code);
+        }
       }
     }
-  }
 
-  return Array.from(permissionCodes);
+    return Array.from(permissionCodes);
+  } catch (error) {
+    console.error(`Failed to fetch permissions for user '${userId}':`, error);
+    return [];
+  }
 }
 
 /**
@@ -59,36 +64,49 @@ export async function hasPermission(
  * Retrieves assigned active roles for a user.
  */
 export async function getUserRoles(userId: string) {
-  const userRoles = await prisma.userRole.findMany({
-    where: {
-      userId,
-      role: {
-        isActive: true,
+  try {
+    const userRoles = await prisma.userRole.findMany({
+      where: {
+        userId,
+        role: {
+          isActive: true,
+        },
       },
-    },
-    include: {
-      role: true,
-    },
-  });
+      include: {
+        role: true,
+      },
+    });
 
-  return userRoles.map((ur) => ur.role);
+    return userRoles.map((ur) => ur.role);
+  } catch (error) {
+    console.error(`Failed to fetch roles for user '${userId}':`, error);
+    return [];
+  }
 }
 
 /**
  * Retrieves department scopes assigned to a user.
  */
 export async function getUserDepartmentScopes(userId: string) {
-  const scopes = await prisma.userDepartmentScope.findMany({
-    where: {
-      userId,
-      department: {
-        isActive: true,
+  try {
+    const scopes = await prisma.userDepartmentScope.findMany({
+      where: {
+        userId,
+        department: {
+          isActive: true,
+        },
       },
-    },
-    include: {
-      department: true,
-    },
-  });
+      include: {
+        department: true,
+      },
+    });
 
-  return scopes.map((s) => s.department);
+    return scopes.map((s) => s.department);
+  } catch (error) {
+    console.error(
+      `Failed to fetch department scopes for user '${userId}':`,
+      error
+    );
+    return [];
+  }
 }

@@ -43,15 +43,7 @@ export async function listBatchesService(
 ) {
   const validatedFilters = batchFilterSchema.parse(filters || {});
 
-  let departmentId: string | undefined = undefined;
-  if (validatedFilters.programId) {
-    const program = await findProgramById(validatedFilters.programId);
-    if (program) {
-      departmentId = program.departmentId;
-    }
-  }
-
-  await authorize(user, "programs.read", { departmentId });
+  await authorize(user, "programs.read");
 
   return listBatches(validatedFilters);
 }
@@ -84,9 +76,7 @@ export async function createBatchService(
   user: AuthUser | null | undefined,
   input: CreateBatchInput
 ) {
-  const authResult = await authorize(user, "structure.manage", {
-    departmentId: input?.programId,
-  });
+  const authResult = await authorize(user, "structure.manage");
 
   const parsed = createBatchSchema.parse(input);
 
@@ -168,9 +158,7 @@ export async function updateBatchService(
     throw new NotFoundError(`Batch with ID '${id}' not found.`);
   }
 
-  const authResult = await authorize(user, "structure.manage", {
-    departmentId: existingBatch.program.departmentId,
-  });
+  const authResult = await authorize(user, "structure.manage");
 
   const parsed = updateBatchSchema.parse(input);
   const validatedData: UpdateBatchInput = { ...parsed };
@@ -218,9 +206,7 @@ export async function deactivateBatchService(
     throw new NotFoundError(`Batch with ID '${id}' not found.`);
   }
 
-  const authResult = await authorize(user, "structure.manage", {
-    departmentId: existingBatch.program.departmentId,
-  });
+  const authResult = await authorize(user, "structure.manage");
 
   const deactivated = await deactivateBatch(id);
 
@@ -252,9 +238,7 @@ export async function deleteBatchService(
     throw new NotFoundError(`Batch with ID '${id}' not found.`);
   }
 
-  const authResult = await authorize(user, "structure.manage", {
-    departmentId: existingBatch.program.departmentId,
-  });
+  const authResult = await authorize(user, "structure.manage");
 
   const refCount = await countBatchReferences(id);
 

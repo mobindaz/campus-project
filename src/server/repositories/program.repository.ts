@@ -2,7 +2,6 @@ import { prisma } from "@/server/database";
 import { ProgramType, Prisma } from "@prisma/client";
 
 export interface ListProgramsOptions {
-  departmentId?: string;
   type?: ProgramType;
   includeInactive?: boolean;
   search?: string;
@@ -12,7 +11,7 @@ export async function findProgramById(id: string) {
   return prisma.program.findUnique({
     where: { id },
     include: {
-      department: true,
+      departments: true,
     },
   });
 }
@@ -20,12 +19,18 @@ export async function findProgramById(id: string) {
 export async function findProgramByCode(code: string) {
   return prisma.program.findUnique({
     where: { code },
+    include: {
+      departments: true,
+    },
   });
 }
 
 export async function findProgramByName(name: string) {
   return prisma.program.findUnique({
     where: { name },
+    include: {
+      departments: true,
+    },
   });
 }
 
@@ -34,10 +39,6 @@ export async function listPrograms(options: ListProgramsOptions = {}) {
 
   if (!options.includeInactive) {
     where.isActive = true;
-  }
-
-  if (options.departmentId) {
-    where.departmentId = options.departmentId;
   }
 
   if (options.type) {
@@ -56,53 +57,54 @@ export async function listPrograms(options: ListProgramsOptions = {}) {
   return prisma.program.findMany({
     where,
     include: {
-      department: {
+      departments: {
         select: {
           id: true,
           name: true,
           code: true,
+          isActive: true,
         },
       },
     },
-    orderBy: [{ department: { name: "asc" } }, { name: "asc" }],
+    orderBy: [{ name: "asc" }],
   });
 }
 
 /**
- * Counts foreign key references to a program across future tables (Student, Batch, etc.)
+ * Counts foreign key references to a program across academic tables
  */
-export async function countProgramReferences(programId: string): Promise<number> {
-  // Placeholder for future foreign key checks (e.g. Student count, Batch count)
-  return 0;
+export async function countProgramReferences(
+  programId: string
+): Promise<number> {
+  const [departmentsCount, periodsCount, batchesCount, studentsCount] =
+    await Promise.all([
+      prisma.department.count({ where: { programId } }),
+      prisma.academicPeriod.count({ where: { programId } }),
+      prisma.batch.count({ where: { programId } }),
+      prisma.student.count({ where: { programId } }),
+    ]);
+
+  return departmentsCount + periodsCount + batchesCount + studentsCount;
 }
 
 export async function createProgram(data: Prisma.ProgramCreateInput) {
   return prisma.program.create({
     data,
     include: {
-      department: {
-        select: {
-          id: true,
-          name: true,
-          code: true,
-        },
-      },
+      departments: true,
     },
   });
 }
 
-export async function updateProgram(id: string, data: Prisma.ProgramUpdateInput) {
+export async function updateProgram(
+  id: string,
+  data: Prisma.ProgramUpdateInput
+) {
   return prisma.program.update({
     where: { id },
     data,
     include: {
-      department: {
-        select: {
-          id: true,
-          name: true,
-          code: true,
-        },
-      },
+      departments: true,
     },
   });
 }
@@ -112,13 +114,7 @@ export async function deactivateProgram(id: string) {
     where: { id },
     data: { isActive: false },
     include: {
-      department: {
-        select: {
-          id: true,
-          name: true,
-          code: true,
-        },
-      },
+      departments: true,
     },
   });
 }

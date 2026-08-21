@@ -14,7 +14,10 @@ export async function GET(request: Request) {
     const search = searchParams.get("search") || undefined;
     const includeInactive = searchParams.get("includeInactive") === "true";
     const typeStr = searchParams.get("type");
-    const type = typeStr === "ACADEMIC" || typeStr === "ADMINISTRATIVE" ? typeStr : undefined;
+    const type =
+      typeStr === "ACADEMIC" || typeStr === "ADMINISTRATIVE"
+        ? typeStr
+        : undefined;
 
     const departments = await listDepartmentsService(session?.user, {
       search,
@@ -23,7 +26,7 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json({ success: true, data: departments });
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof AppError) {
       return NextResponse.json(
         { success: false, error: error.message, code: error.code },
@@ -43,8 +46,11 @@ export async function POST(request: Request) {
     const body = await request.json();
 
     const department = await createDepartmentService(session?.user, body);
-    return NextResponse.json({ success: true, data: department }, { status: 201 });
-  } catch (error: any) {
+    return NextResponse.json(
+      { success: true, data: department },
+      { status: 201 }
+    );
+  } catch (error: unknown) {
     if (error instanceof AppError) {
       return NextResponse.json(
         { success: false, error: error.message, code: error.code },

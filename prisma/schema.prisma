@@ -127,21 +127,6 @@ enum DepartmentType {
   ADMINISTRATIVE
 }
 
-model Department {
-  id          String                @id @default(cuid())
-  name        String                @unique
-  code        String                @unique
-  type        DepartmentType        @default(ACADEMIC)
-  description String?
-  isActive    Boolean               @default(true)
-  createdAt   DateTime              @default(now())
-  updatedAt   DateTime              @updatedAt
-  userScopes  UserDepartmentScope[]
-  programs    Program[]
-
-  @@map("departments")
-}
-
 enum ProgramType {
   DEGREE
   DIPLOMA
@@ -157,17 +142,36 @@ model Program {
   shortName       String
   type            ProgramType      @default(DEGREE)
   durationYears   Int              @default(4)
-  departmentId    String
-  department      Department       @relation(fields: [departmentId], references: [id], onDelete: Restrict)
   isActive        Boolean          @default(true)
   customFields    Json             @default("{}")
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
+  departments     Department[]
   academicPeriods AcademicPeriod[]
   batches         Batch[]
+  students        Student[]
 
-  @@index([departmentId])
   @@map("programs")
+}
+
+model Department {
+  id              String                @id @default(cuid())
+  name            String                @unique
+  code            String                @unique
+  type            DepartmentType        @default(ACADEMIC)
+  description     String?
+  programId       String?
+  program         Program?              @relation(fields: [programId], references: [id], onDelete: SetNull)
+  isActive        Boolean               @default(true)
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  userScopes      UserDepartmentScope[]
+  academicPeriods AcademicPeriod[]
+  batches         Batch[]
+  students        Student[]
+
+  @@index([programId])
+  @@map("departments")
 }
 
 enum AcademicPeriodPattern {
@@ -179,24 +183,28 @@ enum AcademicPeriodPattern {
 }
 
 model AcademicPeriod {
-  id         String                @id @default(cuid())
-  name       String
-  code       String
-  pattern    AcademicPeriodPattern @default(SEMESTER)
-  orderIndex Int                   @default(1)
-  programId  String
-  program    Program               @relation(fields: [programId], references: [id], onDelete: Cascade)
-  isActive   Boolean               @default(true)
-  createdAt  DateTime              @default(now())
-  updatedAt  DateTime              @updatedAt
+  id           String                @id @default(cuid())
+  name         String
+  code         String
+  pattern      AcademicPeriodPattern @default(SEMESTER)
+  orderIndex   Int                   @default(1)
+  programId    String
+  program      Program               @relation(fields: [programId], references: [id], onDelete: Cascade)
+  departmentId String?
+  department   Department?           @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  isActive     Boolean               @default(true)
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  students     Student[]
 
   @@unique([programId, code])
   @@index([programId, orderIndex])
+  @@index([departmentId])
   @@map("academic_periods")
 }
 
 model Batch {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   name           String
   code           String
   academicYear   String
@@ -204,13 +212,17 @@ model Batch {
   graduationYear Int
   section        String?
   programId      String
-  program        Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  program        Program   @relation(fields: [programId], references: [id], onDelete: Cascade)
+  departmentId   String?
+  department     Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  students       Student[]
 
   @@unique([programId, code])
   @@index([programId])
+  @@index([departmentId])
   @@map("batches")
 }
 
@@ -261,6 +273,75 @@ model AuditLog {
   @@index([userId])
   @@map("audit_logs")
 }
+
+enum CustomFieldType {
+  TEXT
+  TEXTAREA
+  NUMBER
+  DECIMAL
+  EMAIL
+  PHONE
+  DATE
+  DATETIME
+  DROPDOWN
+  MULTI_SELECT
+  RADIO
+  CHECKBOX
+  FILE
+  IMAGE
+  URL
+  CURRENCY
+}
+
+model CustomFieldDefinition {
+  id           String          @id @default(cuid())
+  entityType   String          // e.g. "STUDENT", "FACULTY", "COMPANY", "PLACEMENT_DRIVE"
+  name         String          // camelCase field key e.g. "parentPhone"
+  label        String          // Display label e.g. "Parent Phone"
+  type         CustomFieldType
+  required     Boolean         @default(false)
+  unique       Boolean         @default(false)
+  defaultValue Json?
+  validation   Json?           // { min?, max?, minLength?, maxLength?, pattern? }
+  visibility   String          @default("ALL") // "ALL", "ADMIN_ONLY", "READ_ONLY"
+  order        Int             @default(0)
+  helpText     String?
+  options      Json?           // ["Option 1", "Option 2"] or [{label, value}]
+  isActive     Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@unique([entityType, name])
+  @@index([entityType, isActive])
+  @@map("custom_field_definitions")
+}
+
+model Student {
+  id               String         @id @default(cuid())
+  registerNumber   String         @unique
+  name             String
+  email            String?        @unique
+  phone            String?
+  dateOfBirth      DateTime?
+  programId        String
+  program          Program        @relation(fields: [programId], references: [id], onDelete: Restrict)
+  departmentId     String?
+  department       Department?    @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  batchId          String
+  batch            Batch          @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  academicPeriodId String
+  academicPeriod   AcademicPeriod @relation(fields: [academicPeriodId], references: [id], onDelete: Restrict)
+  isActive         Boolean        @default(true)
+  customFields     Json           @default("{}")
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([customFields], type: Gin)
+  @@index([programId, departmentId, batchId])
+  @@map("students")
+}
+
+
 
 
 

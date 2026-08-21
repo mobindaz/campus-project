@@ -1,8 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
-import { ProgramList, ProgramItem } from "@/modules/programs/components/program-list";
-import { ProgramFormDialog, DepartmentOption } from "@/modules/programs/components/program-form-dialog";
+import {
+  ProgramList,
+  ProgramItem,
+} from "@/modules/programs/components/program-list";
+import {
+  ProgramFormDialog,
+  DepartmentOption,
+} from "@/modules/programs/components/program-form-dialog";
 import { ProgramDeactivateDialog } from "@/modules/programs/components/program-deactivate-dialog";
 import { getProgramsAction } from "@/modules/programs/actions";
 
@@ -18,13 +24,15 @@ export function ProgramClientWrapper({
   const [programs, setPrograms] = useState<ProgramItem[]>(initialPrograms);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeactivateOpen, setIsDeactivateOpen] = useState(false);
-  const [selectedProgram, setSelectedProgram] = useState<ProgramItem | null>(null);
+  const [selectedProgram, setSelectedProgram] = useState<ProgramItem | null>(
+    null
+  );
 
   const handleRefresh = async () => {
     try {
       const res = await getProgramsAction({ includeInactive: true });
       if (res.success && res.data) {
-        setPrograms(res.data as any);
+        setPrograms(res.data as unknown as ProgramItem[]);
       }
     } catch (err) {
       console.error("Failed to refresh programs:", err);
@@ -61,7 +69,6 @@ export function ProgramClientWrapper({
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
         onSuccess={handleRefresh}
-        departments={departments}
         programToEdit={selectedProgram}
       />
 

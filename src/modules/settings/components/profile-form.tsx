@@ -67,6 +67,7 @@ export function ProfileForm({ initialProfile, onSuccess }: ProfileFormProps) {
     },
   });
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const logoUrl = watch("logoUrl");
   const primaryColor = watch("primaryColor");
   const secondaryColor = watch("secondaryColor");

@@ -25,17 +25,22 @@ export interface BatchItem {
   graduationYear: number;
   section?: string | null;
   programId: string;
-  program: {
+  departmentId?: string | null;
+  program?: {
     id: string;
     name: string;
     code: string;
-    departmentId: string;
-    department?: {
+    departments?: {
       id: string;
       name: string;
       code: string;
-    };
-  };
+    }[];
+  } | null;
+  department?: {
+    id: string;
+    name: string;
+    code: string;
+  } | null;
   isActive: boolean;
   createdAt: Date | string;
   updatedAt: Date | string;
@@ -74,7 +79,8 @@ export function BatchList({
       const matchCode = batch.code.toLowerCase().includes(term);
       const matchYear = batch.academicYear.toLowerCase().includes(term);
       const matchSec = batch.section?.toLowerCase().includes(term) || false;
-      const matchProg = batch.program.name.toLowerCase().includes(term);
+      const matchProg =
+        batch.program?.name.toLowerCase().includes(term) || false;
       return matchName || matchCode || matchYear || matchSec || matchProg;
     }
     return true;
@@ -208,7 +214,9 @@ export function BatchList({
                       <div className="flex items-center space-x-2">
                         <BookOpen className="h-3.5 w-3.5 text-slate-500" />
                         <span className="text-xs font-medium text-slate-200">
-                          {batch.program.name} ({batch.program.code})
+                          {batch.program
+                            ? `${batch.program.name} (${batch.program.code})`
+                            : "Standalone"}
                         </span>
                       </div>
                     </td>

@@ -1,4 +1,3 @@
-"use 'server'";
 "use server";
 
 import { revalidatePath } from "next/cache";
@@ -22,11 +21,18 @@ export async function getDepartmentsAction(filters?: DepartmentFilterInput) {
     const session = await getSession();
     const departments = await listDepartmentsService(session?.user, filters);
     return { success: true, data: departments };
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof AppError) {
-      return { success: false, error: error.message, statusCode: error.statusCode };
+      return {
+        success: false,
+        error: error.message,
+        statusCode: error.statusCode,
+      };
     }
-    return { success: false, error: "An unexpected error occurred while fetching departments." };
+    return {
+      success: false,
+      error: "An unexpected error occurred while fetching departments.",
+    };
   }
 }
 
@@ -36,25 +42,42 @@ export async function createDepartmentAction(input: CreateDepartmentInput) {
     const department = await createDepartmentService(session?.user, input);
     revalidatePath("/departments");
     return { success: true, data: department };
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof AppError) {
-      return { success: false, error: error.message, statusCode: error.statusCode };
+      return {
+        success: false,
+        error: error.message,
+        statusCode: error.statusCode,
+      };
     }
-    return { success: false, error: "An unexpected error occurred while creating department." };
+    return {
+      success: false,
+      error: "An unexpected error occurred while creating department.",
+    };
   }
 }
 
-export async function updateDepartmentAction(id: string, input: UpdateDepartmentInput) {
+export async function updateDepartmentAction(
+  id: string,
+  input: UpdateDepartmentInput
+) {
   try {
     const session = await getSession();
     const department = await updateDepartmentService(session?.user, id, input);
     revalidatePath("/departments");
     return { success: true, data: department };
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof AppError) {
-      return { success: false, error: error.message, statusCode: error.statusCode };
+      return {
+        success: false,
+        error: error.message,
+        statusCode: error.statusCode,
+      };
     }
-    return { success: false, error: "An unexpected error occurred while updating department." };
+    return {
+      success: false,
+      error: "An unexpected error occurred while updating department.",
+    };
   }
 }
 
@@ -64,11 +87,18 @@ export async function deactivateDepartmentAction(id: string) {
     const department = await deactivateDepartmentService(session?.user, id);
     revalidatePath("/departments");
     return { success: true, data: department };
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof AppError) {
-      return { success: false, error: error.message, statusCode: error.statusCode };
+      return {
+        success: false,
+        error: error.message,
+        statusCode: error.statusCode,
+      };
     }
-    return { success: false, error: "An unexpected error occurred while deactivating department." };
+    return {
+      success: false,
+      error: "An unexpected error occurred while deactivating department.",
+    };
   }
 }
 
@@ -78,10 +108,17 @@ export async function deleteDepartmentAction(id: string) {
     const result = await deleteDepartmentService(session?.user, id);
     revalidatePath("/departments");
     return { success: true, data: result };
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof AppError) {
-      return { success: false, error: error.message, statusCode: error.statusCode };
+      return {
+        success: false,
+        error: error.message,
+        statusCode: error.statusCode,
+      };
     }
-    return { success: false, error: "An unexpected error occurred while deleting department." };
+    return {
+      success: false,
+      error: "An unexpected error occurred while deleting department.",
+    };
   }
 }

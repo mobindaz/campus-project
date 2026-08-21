@@ -13,9 +13,10 @@ export async function findBatchById(id: string) {
     include: {
       program: {
         include: {
-          department: true,
+          departments: true,
         },
       },
+      department: true,
     },
   });
 }
@@ -60,8 +61,7 @@ export async function listBatches(options: ListBatchesOptions = {}) {
           id: true,
           name: true,
           code: true,
-          departmentId: true,
-          department: {
+          departments: {
             select: {
               id: true,
               name: true,
@@ -70,6 +70,7 @@ export async function listBatches(options: ListBatchesOptions = {}) {
           },
         },
       },
+      department: true,
     },
     orderBy: [{ admissionYear: "desc" }, { name: "asc" }],
   });
@@ -90,9 +91,9 @@ export async function createBatch(data: Prisma.BatchCreateInput) {
           id: true,
           name: true,
           code: true,
-          departmentId: true,
         },
       },
+      department: true,
     },
   });
 }
@@ -107,9 +108,9 @@ export async function updateBatch(id: string, data: Prisma.BatchUpdateInput) {
           id: true,
           name: true,
           code: true,
-          departmentId: true,
         },
       },
+      department: true,
     },
   });
 }

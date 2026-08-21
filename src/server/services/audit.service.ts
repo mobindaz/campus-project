@@ -6,6 +6,7 @@ export interface LogAuditParams {
   action: string;
   entity: string;
   entityId: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   details?: Record<string, any>;
 }
 
@@ -22,6 +23,7 @@ export async function logAudit(params: LogAuditParams) {
         action: params.action,
         entity: params.entity,
         entityId: params.entityId,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         details: params.details ? (params.details as any) : undefined,
       },
     });

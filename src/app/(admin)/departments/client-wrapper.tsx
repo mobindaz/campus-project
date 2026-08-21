@@ -1,7 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
-import { DepartmentList, DepartmentItem } from "@/modules/departments/components/department-list";
+import {
+  DepartmentList,
+  DepartmentItem,
+} from "@/modules/departments/components/department-list";
 import { DepartmentFormDialog } from "@/modules/departments/components/department-form-dialog";
 import { DepartmentDeactivateDialog } from "@/modules/departments/components/department-deactivate-dialog";
 import { getDepartmentsAction } from "@/modules/departments/actions";
@@ -10,17 +13,21 @@ export interface DepartmentClientWrapperProps {
   initialDepartments: DepartmentItem[];
 }
 
-export function DepartmentClientWrapper({ initialDepartments }: DepartmentClientWrapperProps) {
-  const [departments, setDepartments] = useState<DepartmentItem[]>(initialDepartments);
+export function DepartmentClientWrapper({
+  initialDepartments,
+}: DepartmentClientWrapperProps) {
+  const [departments, setDepartments] =
+    useState<DepartmentItem[]>(initialDepartments);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeactivateOpen, setIsDeactivateOpen] = useState(false);
-  const [selectedDepartment, setSelectedDepartment] = useState<DepartmentItem | null>(null);
+  const [selectedDepartment, setSelectedDepartment] =
+    useState<DepartmentItem | null>(null);
 
   const handleRefresh = async () => {
     try {
       const res = await getDepartmentsAction({ includeInactive: true });
       if (res.success && res.data) {
-        setDepartments(res.data as any);
+        setDepartments(res.data as unknown as DepartmentItem[]);
       }
     } catch (err) {
       console.error("Failed to refresh departments:", err);
