@@ -409,6 +409,11 @@ export async function seedSystemReferenceData(db: PrismaClient = prisma) {
     });
   }
 
+  // 6. Ensure default form definitions exist
+  const { ensureDefaultFormDefinitions } =
+    await import("../src/server/services/dynamic-form.service");
+  await ensureDefaultFormDefinitions(db);
+
   return {
     rolesCount: roleMap.size,
     permissionsCount: createdPermissions.length,

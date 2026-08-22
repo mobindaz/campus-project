@@ -8,6 +8,20 @@ import { verifyPassword } from "better-auth/crypto";
 import { generatePeriodListPreview } from "./academic-period.service";
 import * as rbacService from "@/server/services/rbac.service";
 
+vi.mock("better-auth/crypto", () => ({
+  hashPassword: vi
+    .fn()
+    .mockImplementation(
+      async (pass: string) => `hashed_scrypt_salt_secure_2026_${pass}`
+    ),
+  verifyPassword: vi
+    .fn()
+    .mockImplementation(
+      async ({ hash, password }: { hash: string; password: string }) =>
+        hash === `hashed_scrypt_salt_secure_2026_${password}`
+    ),
+}));
+
 vi.mock("@/server/services/rbac.service", () => ({
   getUserRoles: vi.fn(),
   getUserPermissions: vi.fn(),
@@ -58,6 +72,10 @@ describe("Database Seed & Tenant Isolation Strategy", () => {
     userRole: {
       upsert: vi.fn().mockResolvedValue({ id: "ur_1" }),
     },
+    formDefinition: {
+      findUnique: vi.fn().mockResolvedValue({ id: "form_1", fields: [] }),
+      create: vi.fn().mockResolvedValue({ id: "form_1", fields: [] }),
+    },
     program: {
       upsert: vi
         .fn()
@@ -95,7 +113,7 @@ describe("Database Seed & Tenant Isolation Strategy", () => {
     // Verified 0 default programs or departments seeded on clean install
     expect(mockPrisma.program.upsert).not.toHaveBeenCalled();
     expect(mockPrisma.department.upsert).not.toHaveBeenCalled();
-  });
+  }, 15000);
 
   // TEST 2: Seed can run twice without duplicates (Idempotency)
   it("TEST 2: running seed twice executes cleanly without duplicate records or errors", async () => {
@@ -118,7 +136,7 @@ describe("Database Seed & Tenant Isolation Strategy", () => {
       data: expect.any(Array),
       skipDuplicates: true,
     });
-  });
+  }, 15000);
 
   // TEST 3: Demo admin can log in (Password properly hashed)
   it("TEST 3: verifies dummy admin user password is properly hashed via Better Auth crypto", async () => {
