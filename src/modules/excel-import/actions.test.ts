@@ -7,6 +7,10 @@ import {
   saveMappingTemplateAction,
   listMappingTemplatesAction,
   deleteMappingTemplateAction,
+  resolveFieldValuesAction,
+  saveValueMappingsAction,
+  listValueMappingsAction,
+  deleteValueMappingAction,
 } from "./actions";
 
 vi.mock("@/server/services/auth.service", () => ({
@@ -21,8 +25,16 @@ vi.mock("@/server/services/column-mapping.service", () => ({
   deleteMappingTemplateService: vi.fn(),
 }));
 
+vi.mock("@/server/services/value-mapping.service", () => ({
+  analyzeAndResolveFieldValues: vi.fn(),
+  saveValueMappingsService: vi.fn(),
+  listValueMappingsService: vi.fn(),
+  deleteValueMappingService: vi.fn(),
+}));
+
 import { getSession } from "@/server/services/auth.service";
 import * as columnMappingService from "@/server/services/column-mapping.service";
+import * as valueMappingService from "@/server/services/value-mapping.service";
 
 function createMockExcelFile(
   name = "test.xlsx",
@@ -269,6 +281,153 @@ describe("Excel Import Actions", () => {
       const res = await deleteMappingTemplateAction("tmpl_1");
       expect(res.success).toBe(true);
       expect(res.data?.id).toBe("tmpl_1");
+    });
+  });
+
+  describe("Value Mapping Actions (Spec §18)", () => {
+    const mockUser = {
+      id: "u1",
+      name: "Admin",
+      email: "admin@college.edu",
+    };
+
+    it("resolveFieldValuesAction analyzes and resolves field values", async () => {
+      vi.mocked(getSession).mockResolvedValue({
+        user: mockUser,
+        session: {
+          id: "s1",
+          userId: "u1",
+          token: "tok",
+          expiresAt: new Date(),
+        },
+      } as unknown as Awaited<ReturnType<typeof getSession>>);
+
+      vi.mocked(
+        valueMappingService.analyzeAndResolveFieldValues
+      ).mockResolvedValue({
+        items: [
+          {
+            fieldKey: "department",
+            fieldLabel: "Department",
+            sourceValue: "CSE",
+            occurrenceCount: 2,
+            status: "RESOLVED_EXACT",
+            resolvedTargetId: "dept_cse",
+            resolvedTargetLabel: "Computer Science & Engineering",
+            suggestedTargetId: "dept_cse",
+            suggestedTargetLabel: "Computer Science & Engineering",
+            confidence: 1.0,
+            availableTargets: [],
+          },
+        ],
+        totalUniqueValues: 1,
+        resolvedCount: 1,
+        requiresConfirmationCount: 0,
+        unresolvedCount: 0,
+        allResolved: true,
+      });
+
+      const res = await resolveFieldValuesAction(
+        [{ department: "CSE" }],
+        ["department"],
+        "STUDENT"
+      );
+
+      expect(res.success).toBe(true);
+      expect(res.data?.resolvedCount).toBe(1);
+      expect(res.data?.items[0].status).toBe("RESOLVED_EXACT");
+    });
+
+    it("saveValueMappingsAction saves aliases", async () => {
+      vi.mocked(getSession).mockResolvedValue({
+        user: mockUser,
+        session: {
+          id: "s1",
+          userId: "u1",
+          token: "tok",
+          expiresAt: new Date(),
+        },
+      } as unknown as Awaited<ReturnType<typeof getSession>>);
+
+      vi.mocked(valueMappingService.saveValueMappingsService).mockResolvedValue(
+        [
+          {
+            id: "vm_1",
+            entityType: "STUDENT",
+            fieldKey: "department",
+            sourceValue: "CSE",
+            targetId: "dept_cse",
+            targetLabel: "Computer Science & Engineering",
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ]
+      );
+
+      const res = await saveValueMappingsAction([
+        {
+          entityType: "STUDENT",
+          fieldKey: "department",
+          sourceValue: "CSE",
+          targetId: "dept_cse",
+          targetLabel: "Computer Science & Engineering",
+        },
+      ]);
+
+      expect(res.success).toBe(true);
+      expect(res.data).toHaveLength(1);
+      expect(res.data?.[0].id).toBe("vm_1");
+    });
+
+    it("listValueMappingsAction lists aliases", async () => {
+      vi.mocked(getSession).mockResolvedValue({
+        user: mockUser,
+        session: {
+          id: "s1",
+          userId: "u1",
+          token: "tok",
+          expiresAt: new Date(),
+        },
+      } as unknown as Awaited<ReturnType<typeof getSession>>);
+
+      vi.mocked(valueMappingService.listValueMappingsService).mockResolvedValue(
+        [
+          {
+            id: "vm_1",
+            entityType: "STUDENT",
+            fieldKey: "department",
+            sourceValue: "CSE",
+            targetId: "dept_cse",
+            targetLabel: "Computer Science & Engineering",
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ]
+      );
+
+      const res = await listValueMappingsAction("STUDENT", "department");
+      expect(res.success).toBe(true);
+      expect(res.data).toHaveLength(1);
+    });
+
+    it("deleteValueMappingAction deletes alias by ID", async () => {
+      vi.mocked(getSession).mockResolvedValue({
+        user: mockUser,
+        session: {
+          id: "s1",
+          userId: "u1",
+          token: "tok",
+          expiresAt: new Date(),
+        },
+      } as unknown as Awaited<ReturnType<typeof getSession>>);
+
+      vi.mocked(
+        valueMappingService.deleteValueMappingService
+      ).mockResolvedValue({ success: true, id: "vm_1" });
+
+      const res = await deleteValueMappingAction("vm_1");
+      expect(res.success).toBe(true);
+      expect(res.data?.id).toBe("vm_1");
     });
   });
 });

@@ -79,3 +79,31 @@ export const confirmColumnMappingSchema = z.object({
 export type ConfirmColumnMappingInput = z.infer<
   typeof confirmColumnMappingSchema
 >;
+
+// ─── Value Mapping Schemas (Spec §18) ────────────────────────────────────────
+
+export const saveValueMappingItemSchema = z.object({
+  entityType: z.string().trim().min(1, "Entity type is required"),
+  fieldKey: z.string().trim().min(1, "Field key is required"),
+  sourceValue: z.string().trim().min(1, "Source value is required"),
+  targetId: z.string().trim().min(1, "Target ID is required"),
+  targetLabel: z.string().trim().min(1, "Target label is required"),
+});
+
+export type SaveValueMappingItemInput = z.infer<
+  typeof saveValueMappingItemSchema
+>;
+
+export const saveValueMappingsSchema = z.object({
+  mappings: z.array(saveValueMappingItemSchema),
+});
+
+export type SaveValueMappingsInput = z.infer<typeof saveValueMappingsSchema>;
+
+export const resolveFieldValuesSchema = z.object({
+  entityType: z.string().trim().min(1),
+  fieldKeys: z.array(z.string().trim().min(1)),
+  rows: z.array(z.record(z.string(), z.unknown())),
+});
+
+export type ResolveFieldValuesInput = z.infer<typeof resolveFieldValuesSchema>;

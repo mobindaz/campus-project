@@ -16,6 +16,28 @@ export async function findAcademicPeriodById(id: string) {
   });
 }
 
+export interface ListAcademicPeriodsOptions {
+  includeInactive?: boolean;
+  programId?: string;
+}
+
+export async function listAcademicPeriods(
+  options: ListAcademicPeriodsOptions = {}
+) {
+  const where: Prisma.AcademicPeriodWhereInput = {};
+  if (!options.includeInactive) {
+    where.isActive = true;
+  }
+  if (options.programId) {
+    where.programId = options.programId;
+  }
+
+  return prisma.academicPeriod.findMany({
+    where,
+    orderBy: { orderIndex: "asc" },
+  });
+}
+
 export async function listAcademicPeriodsByProgram(
   programId: string,
   includeInactive = false

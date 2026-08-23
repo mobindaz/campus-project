@@ -19,10 +19,18 @@ import {
   deleteMappingTemplateService,
 } from "@/server/services/column-mapping.service";
 import {
+  analyzeAndResolveFieldValues,
+  saveValueMappingsService,
+  listValueMappingsService,
+  deleteValueMappingService,
+} from "@/server/services/value-mapping.service";
+import {
   excelParseOptionsSchema,
   fileValidationOptionsSchema,
   saveMappingTemplateSchema,
   getColumnMappingSuggestionsSchema,
+  saveValueMappingsSchema,
+  resolveFieldValuesSchema,
 } from "./schemas";
 import type {
   ExcelParseOptions,
@@ -32,6 +40,9 @@ import type {
   ColumnMappingResult,
   ImportMappingTemplate,
   SaveMappingTemplateInput,
+  SaveValueMappingItemInput,
+  ValueMappingItem,
+  ValueResolutionResult,
 } from "./types";
 
 export interface ActionResult<T> {
@@ -306,6 +317,155 @@ export async function deleteMappingTemplateAction(
     return {
       success: false,
       error: "An unexpected error occurred while deleting mapping template.",
+    };
+  }
+}
+
+// ─── Value Mapping Server Actions (Spec §18) ─────────────────────────────────
+
+/**
+ * Server action to analyze and resolve spreadsheet field values (exact DB match, saved aliases, or heuristic suggestions).
+ */
+export async function resolveFieldValuesAction(
+  rows: Array<Record<string, unknown>>,
+  fieldKeys: string[],
+  entityType: string
+): Promise<ActionResult<ValueResolutionResult>> {
+  try {
+    const session = await getSession();
+    if (!session?.user) {
+      throw new UnauthorizedError(
+        "Authentication required to resolve import values."
+      );
+    }
+
+    const validated = resolveFieldValuesSchema.parse({
+      rows,
+      fieldKeys,
+      entityType,
+    });
+
+    const result = await analyzeAndResolveFieldValues(
+      validated.rows,
+      validated.fieldKeys,
+      validated.entityType
+    );
+
+    return { success: true, data: result };
+  } catch (error: unknown) {
+    if (error instanceof AppError) {
+      return {
+        success: false,
+        error: error.message,
+        statusCode: error.statusCode,
+      };
+    }
+    return {
+      success: false,
+      error: "An unexpected error occurred while resolving field values.",
+    };
+  }
+}
+
+/**
+ * Server action to persist confirmed value mapping aliases into the database.
+ */
+export async function saveValueMappingsAction(
+  mappings: SaveValueMappingItemInput[]
+): Promise<ActionResult<ValueMappingItem[]>> {
+  try {
+    const session = await getSession();
+    if (!session?.user) {
+      throw new UnauthorizedError(
+        "Authentication required to save value mapping aliases."
+      );
+    }
+
+    const validated = saveValueMappingsSchema.parse({ mappings });
+    const result = await saveValueMappingsService(
+      session.user,
+      validated.mappings
+    );
+
+    return { success: true, data: result };
+  } catch (error: unknown) {
+    if (error instanceof AppError) {
+      return {
+        success: false,
+        error: error.message,
+        statusCode: error.statusCode,
+      };
+    }
+    return {
+      success: false,
+      error: "An unexpected error occurred while saving value mappings.",
+    };
+  }
+}
+
+/**
+ * Server action to list persistent value mappings.
+ */
+export async function listValueMappingsAction(
+  entityType: string,
+  fieldKey?: string
+): Promise<ActionResult<ValueMappingItem[]>> {
+  try {
+    const session = await getSession();
+    if (!session?.user) {
+      throw new UnauthorizedError(
+        "Authentication required to list value mappings."
+      );
+    }
+
+    const list = await listValueMappingsService(
+      session.user,
+      entityType,
+      fieldKey
+    );
+    return { success: true, data: list };
+  } catch (error: unknown) {
+    if (error instanceof AppError) {
+      return {
+        success: false,
+        error: error.message,
+        statusCode: error.statusCode,
+      };
+    }
+    return {
+      success: false,
+      error: "An unexpected error occurred while listing value mappings.",
+    };
+  }
+}
+
+/**
+ * Server action to delete a value mapping alias by ID.
+ */
+export async function deleteValueMappingAction(
+  id: string
+): Promise<ActionResult<{ success: boolean; id: string }>> {
+  try {
+    const session = await getSession();
+    if (!session?.user) {
+      throw new UnauthorizedError(
+        "Authentication required to delete value mapping."
+      );
+    }
+
+    const result = await deleteValueMappingService(session.user, id);
+    return { success: true, data: result };
+  } catch (error: unknown) {
+    if (error instanceof AppError) {
+      return {
+        success: false,
+        error: error.message,
+        statusCode: error.statusCode,
+      };
+    }
+    return {
+      success: false,
+      error: "An unexpected error occurred while deleting value mapping.",
     };
   }
 }

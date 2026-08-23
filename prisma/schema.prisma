@@ -397,6 +397,22 @@ model ImportMapping {
   @@map("import_mappings")
 }
 
+model ValueMapping {
+  id          String   @id @default(cuid())
+  entityType  String   // e.g. "STUDENT", "FACULTY"
+  fieldKey    String   // e.g. "department", "program", "batch", "academicPeriod"
+  sourceValue String   // e.g. "CSE", "CS", "Computer Science"
+  targetId    String   // target entity ID or canonical option value
+  targetLabel String   // human-readable label e.g. "Computer Science & Engineering"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([entityType, fieldKey, sourceValue])
+  @@index([entityType, fieldKey])
+  @@map("value_mappings")
+}
+
+
 
 
 

@@ -148,6 +148,60 @@ export interface SaveMappingTemplateInput {
   description?: string | null;
 }
 
+// ─── Value Mapping Engine Types (Spec §18) ───────────────────────────────────
+
+export type ValueMappingStatus =
+  "RESOLVED_EXACT" | "RESOLVED_ALIAS" | "SUGGESTED_MATCH" | "UNRESOLVED";
+
+export interface TargetOption {
+  id: string;
+  label: string;
+  code?: string;
+  details?: string;
+}
+
+export interface FieldValueResolutionItem {
+  fieldKey: string;
+  fieldLabel: string;
+  sourceValue: string;
+  occurrenceCount: number;
+  status: ValueMappingStatus;
+  resolvedTargetId: string | null;
+  resolvedTargetLabel: string | null;
+  suggestedTargetId: string | null;
+  suggestedTargetLabel: string | null;
+  confidence: number;
+  availableTargets: TargetOption[];
+}
+
+export interface ValueResolutionResult {
+  items: FieldValueResolutionItem[];
+  totalUniqueValues: number;
+  resolvedCount: number;
+  requiresConfirmationCount: number;
+  unresolvedCount: number;
+  allResolved: boolean;
+}
+
+export interface SaveValueMappingItemInput {
+  entityType: string;
+  fieldKey: string;
+  sourceValue: string;
+  targetId: string;
+  targetLabel: string;
+}
+
+export interface ValueMappingItem {
+  id: string;
+  entityType: string;
+  fieldKey: string;
+  sourceValue: string;
+  targetId: string;
+  targetLabel: string;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
 export interface BatchItemError {
   index: number;
   rowNumber?: number;
