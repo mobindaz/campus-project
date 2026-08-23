@@ -8,7 +8,7 @@ import {
   UpdateFormDefinitionInput,
   CreateFormFieldInput,
   UpdateFormFieldInput,
-} from "@/modules/dynamic-forms/types";
+} from "@/modules/dynamic-forms/schemas";
 
 export async function getFormDefinitionAction(code: string) {
   const session = await requireAuth({ redirectTo: "/forms" });
@@ -24,8 +24,7 @@ export async function createFormDefinitionAction(
   input: CreateFormDefinitionInput
 ) {
   const session = await requireAuth({ redirectTo: "/forms" });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return service.createFormDefinitionService(session.user, input as any);
+  return service.createFormDefinitionService(session.user, input);
 }
 
 export async function updateFormDefinitionAction(
@@ -41,12 +40,7 @@ export async function addFormFieldAction(
   input: CreateFormFieldInput
 ) {
   const session = await requireAuth({ redirectTo: "/forms" });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return service.addFormFieldService(
-    session.user,
-    formDefinitionId,
-    input as any
-  );
+  return service.addFormFieldService(session.user, formDefinitionId, input);
 }
 
 export async function updateFormFieldAction(
@@ -54,8 +48,7 @@ export async function updateFormFieldAction(
   input: UpdateFormFieldInput
 ) {
   const session = await requireAuth({ redirectTo: "/forms" });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return service.updateFormFieldService(session.user, fieldId, input as any);
+  return service.updateFormFieldService(session.user, fieldId, input);
 }
 
 export async function deleteFormFieldAction(fieldId: string) {
