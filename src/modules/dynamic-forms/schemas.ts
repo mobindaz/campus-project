@@ -73,11 +73,11 @@ export const reorderFormFieldsSchema = z.object({
   fieldIds: z.array(z.string().min(1)),
 });
 
-export type CreateFormFieldInput = z.infer<typeof createFormFieldSchema>;
-export type UpdateFormFieldInput = z.infer<typeof updateFormFieldSchema>;
-export type CreateFormDefinitionInput = z.infer<
+export type CreateFormFieldInput = z.input<typeof createFormFieldSchema>;
+export type UpdateFormFieldInput = z.input<typeof updateFormFieldSchema>;
+export type CreateFormDefinitionInput = z.input<
   typeof createFormDefinitionSchema
 >;
-export type UpdateFormDefinitionInput = z.infer<
+export type UpdateFormDefinitionInput = z.input<
   typeof updateFormDefinitionSchema
 >;

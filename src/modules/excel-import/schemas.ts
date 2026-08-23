@@ -39,3 +39,43 @@ export const inspectExcelFileSchema = z.object({
 });
 
 export type InspectExcelFileInput = z.infer<typeof inspectExcelFileSchema>;
+
+// ─── Column Mapping Schemas (Spec §14–15) ────────────────────────────────────
+
+export const saveMappingTemplateSchema = z.object({
+  name: z.string().trim().min(1, "Template name is required").max(100),
+  entityType: z.string().trim().min(1, "Entity type is required"),
+  mapping: z
+    .record(z.string(), z.string())
+    .refine(
+      (map) => Object.keys(map).length > 0,
+      "Mapping must contain at least one column entry."
+    ),
+  isDefault: z.boolean().default(false),
+  description: z.string().trim().max(500).optional().nullable(),
+});
+
+export type SaveMappingTemplateInput = z.infer<
+  typeof saveMappingTemplateSchema
+>;
+
+export const getColumnMappingSuggestionsSchema = z.object({
+  sourceHeaders: z.array(z.string()),
+  entityType: z.string().trim().min(1),
+  templateId: z.string().optional(),
+});
+
+export type GetColumnMappingSuggestionsInput = z.infer<
+  typeof getColumnMappingSuggestionsSchema
+>;
+
+export const confirmColumnMappingSchema = z.object({
+  entityType: z.string().trim().min(1),
+  mapping: z.record(z.string(), z.string()),
+  saveAsTemplate: z.boolean().optional(),
+  templateName: z.string().trim().min(1).optional(),
+});
+
+export type ConfirmColumnMappingInput = z.infer<
+  typeof confirmColumnMappingSchema
+>;

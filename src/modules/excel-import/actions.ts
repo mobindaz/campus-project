@@ -12,14 +12,26 @@ import {
   parseExcelSheet,
 } from "@/server/services/excel-import.service";
 import {
+  suggestColumnMappings,
+  saveMappingTemplateService,
+  listMappingTemplatesService,
+  getMappingTemplateService,
+  deleteMappingTemplateService,
+} from "@/server/services/column-mapping.service";
+import {
   excelParseOptionsSchema,
   fileValidationOptionsSchema,
+  saveMappingTemplateSchema,
+  getColumnMappingSuggestionsSchema,
 } from "./schemas";
 import type {
   ExcelParseOptions,
   ExcelParsedData,
   ExcelWorkbookInfo,
   FileValidationOptions,
+  ColumnMappingResult,
+  ImportMappingTemplate,
+  SaveMappingTemplateInput,
 } from "./types";
 
 export interface ActionResult<T> {
@@ -118,6 +130,182 @@ export async function parseExcelFileAction(
     return {
       success: false,
       error: "An unexpected error occurred while parsing the spreadsheet.",
+    };
+  }
+}
+
+// ─── Column Mapping Server Actions (Spec §14–15) ─────────────────────────────
+
+/**
+ * Server action to suggest column mappings for a list of source headers.
+ */
+export async function suggestColumnMappingsAction(
+  sourceHeaders: string[],
+  entityType: string,
+  templateId?: string
+): Promise<ActionResult<ColumnMappingResult>> {
+  try {
+    const session = await getSession();
+    if (!session?.user) {
+      throw new UnauthorizedError(
+        "Authentication required to map spreadsheet columns."
+      );
+    }
+
+    const validated = getColumnMappingSuggestionsSchema.parse({
+      sourceHeaders,
+      entityType,
+      templateId,
+    });
+
+    const result = await suggestColumnMappings(
+      validated.sourceHeaders,
+      validated.entityType,
+      validated.templateId
+    );
+
+    return { success: true, data: result };
+  } catch (error: unknown) {
+    if (error instanceof AppError) {
+      return {
+        success: false,
+        error: error.message,
+        statusCode: error.statusCode,
+      };
+    }
+    return {
+      success: false,
+      error:
+        "An unexpected error occurred while generating column mapping suggestions.",
+    };
+  }
+}
+
+/**
+ * Server action to save a confirmed column mapping template.
+ */
+export async function saveMappingTemplateAction(
+  input: SaveMappingTemplateInput
+): Promise<ActionResult<ImportMappingTemplate>> {
+  try {
+    const session = await getSession();
+    if (!session?.user) {
+      throw new UnauthorizedError(
+        "Authentication required to save mapping templates."
+      );
+    }
+
+    const validated = saveMappingTemplateSchema.parse(input);
+    const template = await saveMappingTemplateService(session.user, validated);
+
+    return { success: true, data: template };
+  } catch (error: unknown) {
+    if (error instanceof AppError) {
+      return {
+        success: false,
+        error: error.message,
+        statusCode: error.statusCode,
+      };
+    }
+    return {
+      success: false,
+      error: "An unexpected error occurred while saving mapping template.",
+    };
+  }
+}
+
+/**
+ * Server action to list all mapping templates for an entity type.
+ */
+export async function listMappingTemplatesAction(
+  entityType: string
+): Promise<ActionResult<ImportMappingTemplate[]>> {
+  try {
+    const session = await getSession();
+    if (!session?.user) {
+      throw new UnauthorizedError(
+        "Authentication required to list mapping templates."
+      );
+    }
+
+    const templates = await listMappingTemplatesService(
+      session.user,
+      entityType
+    );
+    return { success: true, data: templates };
+  } catch (error: unknown) {
+    if (error instanceof AppError) {
+      return {
+        success: false,
+        error: error.message,
+        statusCode: error.statusCode,
+      };
+    }
+    return {
+      success: false,
+      error: "An unexpected error occurred while listing mapping templates.",
+    };
+  }
+}
+
+/**
+ * Server action to get a mapping template by ID.
+ */
+export async function getMappingTemplateAction(
+  id: string
+): Promise<ActionResult<ImportMappingTemplate>> {
+  try {
+    const session = await getSession();
+    if (!session?.user) {
+      throw new UnauthorizedError(
+        "Authentication required to fetch mapping template."
+      );
+    }
+
+    const template = await getMappingTemplateService(session.user, id);
+    return { success: true, data: template };
+  } catch (error: unknown) {
+    if (error instanceof AppError) {
+      return {
+        success: false,
+        error: error.message,
+        statusCode: error.statusCode,
+      };
+    }
+    return {
+      success: false,
+      error: "An unexpected error occurred while fetching mapping template.",
+    };
+  }
+}
+
+/**
+ * Server action to delete a mapping template by ID.
+ */
+export async function deleteMappingTemplateAction(
+  id: string
+): Promise<ActionResult<{ success: boolean; id: string }>> {
+  try {
+    const session = await getSession();
+    if (!session?.user) {
+      throw new UnauthorizedError(
+        "Authentication required to delete mapping template."
+      );
+    }
+
+    const result = await deleteMappingTemplateService(session.user, id);
+    return { success: true, data: result };
+  } catch (error: unknown) {
+    if (error instanceof AppError) {
+      return {
+        success: false,
+        error: error.message,
+        statusCode: error.statusCode,
+      };
+    }
+    return {
+      success: false,
+      error: "An unexpected error occurred while deleting mapping template.",
     };
   }
 }

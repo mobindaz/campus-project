@@ -1,12 +1,28 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import * as XLSX from "xlsx";
-import { inspectExcelFileAction, parseExcelFileAction } from "./actions";
+import {
+  inspectExcelFileAction,
+  parseExcelFileAction,
+  suggestColumnMappingsAction,
+  saveMappingTemplateAction,
+  listMappingTemplatesAction,
+  deleteMappingTemplateAction,
+} from "./actions";
 
 vi.mock("@/server/services/auth.service", () => ({
   getSession: vi.fn(),
 }));
 
+vi.mock("@/server/services/column-mapping.service", () => ({
+  suggestColumnMappings: vi.fn(),
+  saveMappingTemplateService: vi.fn(),
+  listMappingTemplatesService: vi.fn(),
+  getMappingTemplateService: vi.fn(),
+  deleteMappingTemplateService: vi.fn(),
+}));
+
 import { getSession } from "@/server/services/auth.service";
+import * as columnMappingService from "@/server/services/column-mapping.service";
 
 function createMockExcelFile(
   name = "test.xlsx",
@@ -128,6 +144,131 @@ describe("Excel Import Actions", () => {
         full_name: "Jane Doe",
         date_joined: "2024-01-10",
       });
+    });
+  });
+
+  describe("Column Mapping Server Actions", () => {
+    const mockUser = { id: "u1", email: "admin@college.edu", name: "Admin" };
+
+    it("suggestColumnMappingsAction returns suggestions when authenticated", async () => {
+      vi.mocked(getSession).mockResolvedValue({
+        user: mockUser,
+        session: {
+          id: "s1",
+          userId: "u1",
+          token: "tok",
+          expiresAt: new Date(),
+        },
+      } as unknown as Awaited<ReturnType<typeof getSession>>);
+
+      vi.mocked(columnMappingService.suggestColumnMappings).mockResolvedValue({
+        suggestions: {
+          "Admission Number": {
+            sourceHeader: "Admission Number",
+            suggestedKey: "registerNumber",
+            confidence: "HIGH",
+            matchReason: "ALIAS",
+          },
+        },
+        canonicalFields: [],
+        matchedTemplate: null,
+        unmappedRequiredKeys: [],
+      });
+
+      const res = await suggestColumnMappingsAction(
+        ["Admission Number"],
+        "STUDENT"
+      );
+      expect(res.success).toBe(true);
+      expect(res.data?.suggestions["Admission Number"].suggestedKey).toBe(
+        "registerNumber"
+      );
+    });
+
+    it("saveMappingTemplateAction calls service and returns saved template", async () => {
+      vi.mocked(getSession).mockResolvedValue({
+        user: mockUser,
+        session: {
+          id: "s1",
+          userId: "u1",
+          token: "tok",
+          expiresAt: new Date(),
+        },
+      } as unknown as Awaited<ReturnType<typeof getSession>>);
+
+      vi.mocked(
+        columnMappingService.saveMappingTemplateService
+      ).mockResolvedValue({
+        id: "tmpl_1",
+        name: "ERP Template",
+        entityType: "STUDENT",
+        mapping: { "Reg No": "registerNumber" },
+        isDefault: true,
+        description: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const res = await saveMappingTemplateAction({
+        name: "ERP Template",
+        entityType: "STUDENT",
+        mapping: { "Reg No": "registerNumber" },
+        isDefault: true,
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.data?.name).toBe("ERP Template");
+    });
+
+    it("listMappingTemplatesAction lists templates for entity type", async () => {
+      vi.mocked(getSession).mockResolvedValue({
+        user: mockUser,
+        session: {
+          id: "s1",
+          userId: "u1",
+          token: "tok",
+          expiresAt: new Date(),
+        },
+      } as unknown as Awaited<ReturnType<typeof getSession>>);
+
+      vi.mocked(
+        columnMappingService.listMappingTemplatesService
+      ).mockResolvedValue([
+        {
+          id: "tmpl_1",
+          name: "Template A",
+          entityType: "STUDENT",
+          mapping: {},
+          isDefault: false,
+          description: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ]);
+
+      const res = await listMappingTemplatesAction("STUDENT");
+      expect(res.success).toBe(true);
+      expect(res.data).toHaveLength(1);
+    });
+
+    it("deleteMappingTemplateAction deletes template by ID", async () => {
+      vi.mocked(getSession).mockResolvedValue({
+        user: mockUser,
+        session: {
+          id: "s1",
+          userId: "u1",
+          token: "tok",
+          expiresAt: new Date(),
+        },
+      } as unknown as Awaited<ReturnType<typeof getSession>>);
+
+      vi.mocked(
+        columnMappingService.deleteMappingTemplateService
+      ).mockResolvedValue({ success: true, id: "tmpl_1" });
+
+      const res = await deleteMappingTemplateAction("tmpl_1");
+      expect(res.success).toBe(true);
+      expect(res.data?.id).toBe("tmpl_1");
     });
   });
 });

@@ -1,8 +1,8 @@
 /**
  * Generic Excel Import Engine Types
  * =================================
- * Purely entity-agnostic definitions for workbook parsing, sheet metadata inspection,
- * header detection, raw-row extraction, and chunked batch processing.
+ * Definitions for workbook parsing, sheet metadata inspection,
+ * header detection, raw-row extraction, column mapping, and chunked batch processing.
  */
 
 export interface ExcelHeader {
@@ -83,6 +83,69 @@ export interface FileValidationResult {
   mimeType?: string;
   extension: string;
   error?: string;
+}
+
+// ─── Column Mapping Engine Types (Spec §14–15) ───────────────────────────────
+
+export interface CanonicalField {
+  key: string;
+  label: string;
+  type: string;
+  required: boolean;
+  isCustom: boolean;
+  description?: string;
+  entityType: string;
+}
+
+export type MatchConfidence = "HIGH" | "MEDIUM" | "LOW" | "NONE";
+
+export type MatchReason =
+  | "EXACT"
+  | "CASE_INSENSITIVE"
+  | "TRIMMED"
+  | "UNDERSCORE_NORMALIZED"
+  | "ALIAS"
+  | "TEMPLATE"
+  | "FUZZY"
+  | "MANUAL"
+  | "NONE";
+
+export interface ColumnMappingSuggestion {
+  sourceHeader: string;
+  suggestedKey: string | null;
+  confidence: MatchConfidence;
+  matchReason: MatchReason;
+  matchedAlias?: string;
+}
+
+export interface ImportMappingTemplate {
+  id: string;
+  name: string;
+  entityType: string;
+  mapping: Record<string, string>; // { [sourceHeader: string]: targetCanonicalKey }
+  isDefault: boolean;
+  description?: string | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
+export interface ColumnMappingResult {
+  suggestions: Record<string, ColumnMappingSuggestion>;
+  canonicalFields: CanonicalField[];
+  matchedTemplate: {
+    id: string;
+    name: string;
+    matchScore: number;
+  } | null;
+  unmappedRequiredKeys: string[];
+}
+
+export interface SaveMappingTemplateInput {
+  name: string;
+  entityType: string;
+  mapping: Record<string, string>;
+  isDefault?: boolean;
+  description?: string | null;
 }
 
 export interface BatchItemError {

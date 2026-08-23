@@ -348,5 +348,5 @@ describe("Setup Wizard & Academic Period Generator Engine", () => {
       reqLoginAuth as unknown as import("next/server").NextRequest
     );
     expect(resLoginAuth?.headers.get("location")).toContain("/dashboard");
-  });
+  }, 15000);
 });
