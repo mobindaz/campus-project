@@ -73,7 +73,7 @@ function calculateValueSimilarity(
   // Exact code match
   if (targetCode && cleanSource === cleanString(targetCode)) return 1.0;
 
-  // Acronym match (e.g. "CSE" vs "Computer Science & Engineering")
+  // Acronym match (e.g. "CSE" vs "Computer Science & Engineering", or "CS" vs "CSE")
   const sourceAcronym = normalizeAcronym(source);
   const targetAcronym = getAcronymFromWords(targetLabel);
   if (sourceAcronym.length >= 2 && sourceAcronym === targetAcronym) {
@@ -81,6 +81,13 @@ function calculateValueSimilarity(
   }
   if (targetCode && sourceAcronym === normalizeAcronym(targetCode)) {
     return 0.95;
+  }
+  if (
+    sourceAcronym.length >= 2 &&
+    (targetAcronym.startsWith(sourceAcronym) ||
+      (targetCode && normalizeAcronym(targetCode).startsWith(sourceAcronym)))
+  ) {
+    return 0.8;
   }
 
   // Substring containment

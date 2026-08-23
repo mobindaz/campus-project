@@ -8,7 +8,7 @@ import { listBatchesService } from "@/server/services/batch.service";
 import { StudentFormModal } from "@/modules/students/components/StudentFormModal";
 import { Card, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { GraduationCap, Settings } from "lucide-react";
+import { GraduationCap, Settings, FileSpreadsheet } from "lucide-react";
 
 export default async function StudentsPage() {
   const session = await requireAuth({ redirectTo: "/students" });
@@ -47,6 +47,17 @@ export default async function StudentsPage() {
           >
             <Link href="/forms/STUDENT_FORM">
               <Settings className="mr-2 h-4 w-4" /> Configure Form Fields
+            </Link>
+          </Button>
+
+          <Button
+            asChild
+            variant="outline"
+            className="border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 hover:text-white"
+          >
+            <Link href="/students/import">
+              <FileSpreadsheet className="mr-2 h-4 w-4 text-indigo-400" />{" "}
+              Import Excel
             </Link>
           </Button>
 

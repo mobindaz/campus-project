@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import {
+  CanonicalField,
   ColumnMappingResult,
   ExcelHeader,
   ExcelRawRow,
@@ -13,6 +14,7 @@ import {
   listMappingTemplatesAction,
   suggestColumnMappingsAction,
 } from "../actions";
+import { CustomFieldFormDialog } from "@/modules/custom-fields/components/custom-field-form-dialog";
 import {
   CheckCircle2,
   AlertCircle,
@@ -21,6 +23,7 @@ import {
   Sparkles,
   RefreshCw,
   FileSpreadsheet,
+  Plus,
 } from "lucide-react";
 
 export interface ColumnMapperProps {
@@ -36,6 +39,13 @@ export interface ColumnMapperProps {
   className?: string;
 }
 
+function headerToCamelCase(header: string): string {
+  return header
+    .replace(/[^a-zA-Z0-9]+(.)/g, (_, chr) => chr.toUpperCase())
+    .replace(/^[^a-zA-Z]+/, "")
+    .replace(/^[A-Z]/, (c) => c.toLowerCase());
+}
+
 export function ColumnMapper({
   entityType,
   sourceHeaders,
@@ -48,6 +58,10 @@ export function ColumnMapper({
   // Normalize source header strings
   const headerList: string[] = sourceHeaders.map((h) =>
     typeof h === "string" ? h : h.originalName || h.label || h.key
+  );
+
+  const [canonicalFields, setCanonicalFields] = useState<CanonicalField[]>(
+    initialMappingResult.canonicalFields
   );
 
   // Current mapping state: sourceHeader -> canonicalKey (or '__ignore__')
@@ -80,6 +94,12 @@ export function ColumnMapper({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Inline Custom Field Builder State (Spec §16)
+  const [isCustomFieldModalOpen, setIsCustomFieldModalOpen] = useState(false);
+  const [activeHeaderForCustomField, setActiveHeaderForCustomField] = useState<
+    string | null
+  >(null);
 
   // Load existing templates for this entityType
   useEffect(() => {
@@ -135,6 +155,11 @@ export function ColumnMapper({
 
   // Handle manual column mapping change
   const handleColumnChange = (sourceHeader: string, targetKey: string) => {
+    if (targetKey === "__create_custom__") {
+      openCustomFieldDialog(sourceHeader);
+      return;
+    }
+
     setMapping((prev) => ({
       ...prev,
       [sourceHeader]: targetKey,
@@ -145,8 +170,50 @@ export function ColumnMapper({
     }));
   };
 
+  // Open inline Custom Field dialog
+  const openCustomFieldDialog = (sourceHeader: string) => {
+    setActiveHeaderForCustomField(sourceHeader);
+    setIsCustomFieldModalOpen(true);
+  };
+
+  // Handle success from CustomFieldFormDialog
+  const handleCustomFieldSuccess = async () => {
+    setIsCustomFieldModalOpen(false);
+
+    // Refresh canonical fields from server
+    const res = await suggestColumnMappingsAction(
+      headerList,
+      entityType,
+      selectedTemplateId
+    );
+    if (res.success && res.data) {
+      setCanonicalFields(res.data.canonicalFields);
+
+      // Auto-assign the newly created custom field to activeHeaderForCustomField
+      if (activeHeaderForCustomField) {
+        const candidateKey = headerToCamelCase(activeHeaderForCustomField);
+        const createdField = res.data.canonicalFields.find(
+          (f) =>
+            f.key.toLowerCase() === candidateKey.toLowerCase() ||
+            f.label.toLowerCase() === activeHeaderForCustomField.toLowerCase()
+        );
+
+        if (createdField) {
+          setMapping((prev) => ({
+            ...prev,
+            [activeHeaderForCustomField]: createdField.key,
+          }));
+          setMatchReasons((prev) => ({
+            ...prev,
+            [activeHeaderForCustomField]: "MANUAL",
+          }));
+        }
+      }
+    }
+    setActiveHeaderForCustomField(null);
+  };
+
   // Calculate mapped canonical keys and identify missing required fields
-  const canonicalFields = initialMappingResult.canonicalFields;
   const mappedCanonicalKeys = new Set(
     Object.values(mapping).filter((k) => k && k !== "__ignore__")
   );
@@ -188,23 +255,21 @@ export function ColumnMapper({
     try {
       let savedTemplate: ImportMappingTemplate | undefined;
 
+      // Save template if checked
       if (saveAsTemplate && templateName.trim()) {
-        const cleanMapping: Record<string, string> = {};
-        for (const [src, tgt] of Object.entries(mapping)) {
-          if (tgt && tgt !== "__ignore__") {
-            cleanMapping[src] = tgt;
-          }
-        }
-
-        const res = await saveMappingTemplateAction({
+        const saveRes = await saveMappingTemplateAction({
           name: templateName.trim(),
           entityType,
-          mapping: cleanMapping,
+          mapping,
           isDefault: false,
         });
 
-        if (res.success && res.data) {
-          savedTemplate = res.data;
+        if (saveRes.success && saveRes.data) {
+          savedTemplate = saveRes.data;
+        } else {
+          setErrorMessage(saveRes.error || "Failed to save template.");
+          setIsSubmitting(false);
+          return;
         }
       }
 
@@ -213,7 +278,7 @@ export function ColumnMapper({
       setErrorMessage(
         err instanceof Error
           ? err.message
-          : "Failed to confirm column mappings."
+          : "An unexpected error occurred while confirming column mappings."
       );
     } finally {
       setIsSubmitting(false);
@@ -224,25 +289,24 @@ export function ColumnMapper({
     <div
       className={`rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 ${className}`}
     >
-      {/* Header section */}
-      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      {/* Header & Templates Bar */}
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
             <FileSpreadsheet className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-              Confirm Column Mapping
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+              Confirm Column Mappings
             </h2>
           </div>
-          <p className="text-slate-550 mt-1 text-sm dark:text-slate-400">
-            Map columns from your spreadsheet to the system&apos;s canonical
-            fields. Review the suggestions below before proceeding.
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            Map columns from your uploaded spreadsheet to canonical fields.
+            Nothing is applied until you confirm.
           </p>
         </div>
 
-        {/* Template selector */}
+        {/* Template Selector */}
         {templates.length > 0 && (
-          <div className="flex items-center gap-2 self-start rounded-lg border border-slate-200 bg-slate-50 p-2 dark:border-slate-800 dark:bg-slate-950">
-            <Bookmark className="h-4 w-4 text-slate-500" />
+          <div className="flex items-center gap-2">
             <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
               Template:
             </span>
@@ -250,7 +314,7 @@ export function ColumnMapper({
               value={selectedTemplateId}
               onChange={(e) => handleTemplateChange(e.target.value)}
               disabled={isLoadingTemplates}
-              className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-hidden dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             >
               <option value="">Auto-Suggest (Default)</option>
               {templates.map((t) => (
@@ -401,43 +465,62 @@ export function ColumnMapper({
                     <ArrowRight className="inline h-4 w-4" />
                   </td>
 
-                  {/* Target Field Dropdown */}
+                  {/* Target Field Dropdown & Create Custom Field CTA */}
                   <td className="px-4 py-3.5">
-                    <select
-                      value={currentTarget}
-                      onChange={(e) =>
-                        handleColumnChange(header, e.target.value)
-                      }
-                      className={`w-full max-w-xs rounded-lg border px-3 py-1.5 text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none ${
-                        currentTarget === "__ignore__"
-                          ? "border-slate-200 bg-slate-50 text-slate-400 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-500"
-                          : "border-indigo-300 bg-white text-indigo-950 shadow-sm dark:border-indigo-800 dark:bg-slate-900 dark:text-indigo-100"
-                      }`}
-                    >
-                      <option value="__ignore__">
-                        [-- Ignore / Do Not Import --]
-                      </option>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={currentTarget}
+                        onChange={(e) =>
+                          handleColumnChange(header, e.target.value)
+                        }
+                        className={`w-full max-w-xs rounded-lg border px-3 py-1.5 text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-hidden ${
+                          currentTarget === "__ignore__"
+                            ? "border-slate-200 bg-slate-50 text-slate-400 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-500"
+                            : "border-indigo-300 bg-white text-indigo-950 shadow-xs dark:border-indigo-800 dark:bg-slate-900 dark:text-indigo-100"
+                        }`}
+                      >
+                        <option value="__ignore__">
+                          [-- Ignore / Do Not Import --]
+                        </option>
 
-                      <optgroup label="Core Relational Fields">
-                        {coreFields.map((field) => (
-                          <option key={field.key} value={field.key}>
-                            {field.label} {field.required ? "*" : ""} (
-                            {field.type})
-                          </option>
-                        ))}
-                      </optgroup>
-
-                      {customFields.length > 0 && (
-                        <optgroup label="Custom College Fields">
-                          {customFields.map((field) => (
+                        <optgroup label="Core Relational Fields">
+                          {coreFields.map((field) => (
                             <option key={field.key} value={field.key}>
                               {field.label} {field.required ? "*" : ""} (
                               {field.type})
                             </option>
                           ))}
                         </optgroup>
-                      )}
-                    </select>
+
+                        {customFields.length > 0 && (
+                          <optgroup label="Custom College Fields">
+                            {customFields.map((field) => (
+                              <option key={field.key} value={field.key}>
+                                {field.label} {field.required ? "*" : ""} (
+                                {field.type})
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+
+                        <optgroup label="Actions (Spec §16)">
+                          <option value="__create_custom__">
+                            + Create New Custom Field...
+                          </option>
+                        </optgroup>
+                      </select>
+
+                      {/* Quick inline button to create custom field for unmapped column */}
+                      <button
+                        type="button"
+                        onClick={() => openCustomFieldDialog(header)}
+                        title={`Create new custom field for "${header}" (Spec §16)`}
+                        className="inline-flex items-center gap-1 rounded-md border border-dashed border-indigo-300 px-2 py-1 text-[11px] font-medium text-indigo-600 hover:border-indigo-500 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-400 dark:hover:bg-indigo-950/40"
+                      >
+                        <Plus className="h-3 w-3" />
+                        <span className="hidden xl:inline">New Field</span>
+                      </button>
+                    </div>
                   </td>
 
                   {/* Sample Values Preview */}
@@ -448,14 +531,13 @@ export function ColumnMapper({
                           <span
                             key={idx}
                             className="inline-block max-w-[140px] truncate rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-600 dark:bg-slate-800 dark:text-slate-300"
-                            title={s}
                           >
                             {s}
                           </span>
                         ))}
                       </div>
                     ) : (
-                      <span className="text-[11px] text-slate-400 italic">
+                      <span className="text-xs text-slate-400 italic">
                         No sample data
                       </span>
                     )}
@@ -467,63 +549,105 @@ export function ColumnMapper({
         </table>
       </div>
 
-      {/* Save as Template Option */}
+      {/* Save as Template Options */}
       <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-950/40">
-        <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
+        <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-slate-700 select-none dark:text-slate-300">
           <input
             type="checkbox"
             checked={saveAsTemplate}
             onChange={(e) => setSaveAsTemplate(e.target.checked)}
-            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
           />
-          Save this mapping as a reusable template for future uploads
+          <Bookmark className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+          <span>Save this column mapping as a reusable template</span>
         </label>
 
         {saveAsTemplate && (
-          <div className="mt-3 flex max-w-md items-center gap-2">
+          <div className="mt-3 max-w-sm">
             <input
               type="text"
-              placeholder="e.g. Standard University ERP Format"
+              placeholder="e.g. Standard Anna University Student Template"
               value={templateName}
               onChange={(e) => setTemplateName(e.target.value)}
-              className="flex-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 focus:outline-hidden dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             />
           </div>
         )}
       </div>
 
-      {/* Action CTA Buttons */}
-      <div className="mt-6 flex items-center justify-end gap-3">
-        {onCancel && (
+      {/* Footer CTAs */}
+      <div className="mt-6 flex items-center justify-between">
+        <div>
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={isSubmitting}
+              className="rounded-lg px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+            >
+              Back
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={onCancel}
-            disabled={isSubmitting}
-            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            onClick={handleConfirm}
+            disabled={!isFormValid || isSubmitting}
+            className={`flex items-center gap-2 rounded-lg px-5 py-2.5 text-xs font-bold shadow-xs transition-all ${
+              isFormValid && !isSubmitting
+                ? "bg-indigo-600 text-white hover:bg-indigo-700"
+                : "cursor-not-allowed bg-slate-200 text-slate-400 dark:bg-slate-800"
+            }`}
           >
-            Cancel
+            {isSubmitting ? (
+              <>
+                <RefreshCw className="h-4 w-4 animate-spin" />
+                Saving Template...
+              </>
+            ) : (
+              <>
+                Confirm Mappings & Proceed
+                <ArrowRight className="h-4 w-4" />
+              </>
+            )}
           </button>
-        )}
-
-        <button
-          type="button"
-          onClick={handleConfirm}
-          disabled={!isFormValid || isSubmitting}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:bg-indigo-500 dark:hover:bg-indigo-600"
-        >
-          {isSubmitting ? (
-            <>
-              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-              Saving Mapping...
-            </>
-          ) : (
-            <>
-              Confirm Column Mapping
-              <ArrowRight className="h-3.5 w-3.5" />
-            </>
-          )}
-        </button>
+        </div>
       </div>
+
+      {/* Phase 3 Inline Custom Field Form Dialog (Spec §16) */}
+      <CustomFieldFormDialog
+        isOpen={isCustomFieldModalOpen}
+        onClose={() => {
+          setIsCustomFieldModalOpen(false);
+          setActiveHeaderForCustomField(null);
+        }}
+        onSuccess={handleCustomFieldSuccess}
+        entityType={entityType}
+        fieldToEdit={
+          activeHeaderForCustomField
+            ? ({
+                id: "",
+                entityType,
+                name: headerToCamelCase(activeHeaderForCustomField),
+                label: activeHeaderForCustomField,
+                type: "TEXT",
+                required: false,
+                unique: false,
+                defaultValue: null,
+                helpText: null,
+                visibility: "ALL",
+                order: 0,
+                options: null,
+                validation: null,
+                isActive: true,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              } as never)
+            : null
+        }
+      />
     </div>
   );
 }
