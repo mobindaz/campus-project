@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   ProgramList,
   ProgramItem,
@@ -10,34 +10,26 @@ import {
   DepartmentOption,
 } from "@/modules/programs/components/program-form-dialog";
 import { ProgramDeactivateDialog } from "@/modules/programs/components/program-deactivate-dialog";
-import { getProgramsAction } from "@/modules/programs/actions";
 
 export interface ProgramClientWrapperProps {
-  initialPrograms: ProgramItem[];
+  permissions: string[];
   departments: DepartmentOption[];
 }
 
 export function ProgramClientWrapper({
-  initialPrograms,
+  permissions,
   departments,
 }: ProgramClientWrapperProps) {
-  const [programs, setPrograms] = useState<ProgramItem[]>(initialPrograms);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeactivateOpen, setIsDeactivateOpen] = useState(false);
   const [selectedProgram, setSelectedProgram] = useState<ProgramItem | null>(
     null
   );
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  const handleRefresh = async () => {
-    try {
-      const res = await getProgramsAction({ includeInactive: true });
-      if (res.success && res.data) {
-        setPrograms(res.data as unknown as ProgramItem[]);
-      }
-    } catch (err) {
-      console.error("Failed to refresh programs:", err);
-    }
-  };
+  const handleRefresh = useCallback(() => {
+    setRefreshKey((prev) => prev + 1);
+  }, []);
 
   const handleOpenCreate = () => {
     setSelectedProgram(null);
@@ -56,14 +48,16 @@ export function ProgramClientWrapper({
 
   return (
     <div>
-      <ProgramList
-        programs={programs}
-        departments={departments}
-        onOpenCreate={handleOpenCreate}
-        onOpenEdit={handleOpenEdit}
-        onOpenDeactivate={handleOpenDeactivate}
-        onRefresh={handleRefresh}
-      />
+      <div key={refreshKey}>
+        <ProgramList
+          permissions={permissions}
+          departments={departments}
+          onOpenCreate={handleOpenCreate}
+          onOpenEdit={handleOpenEdit}
+          onOpenDeactivate={handleOpenDeactivate}
+          onRefresh={handleRefresh}
+        />
+      </div>
 
       <ProgramFormDialog
         isOpen={isFormOpen}

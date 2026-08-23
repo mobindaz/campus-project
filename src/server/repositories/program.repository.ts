@@ -124,3 +124,70 @@ export async function deleteProgram(id: string) {
     where: { id },
   });
 }
+
+// ─── Paginated Query (Dynamic Tables Engine) ─────────────────────────────────
+
+export interface ListProgramsPaginatedOptions {
+  skip: number;
+  take: number;
+  orderBy?: Record<string, "asc" | "desc">;
+  searchTerm?: string;
+  filters?: Record<string, string>;
+}
+
+export async function listProgramsPaginated(
+  options: ListProgramsPaginatedOptions
+): Promise<{
+  data: Awaited<ReturnType<typeof prisma.program.findMany>>;
+  total: number;
+}> {
+  const where: Prisma.ProgramWhereInput = {};
+
+  // Search across name, code, shortName
+  if (options.searchTerm) {
+    where.OR = [
+      { name: { contains: options.searchTerm, mode: "insensitive" } },
+      { code: { contains: options.searchTerm, mode: "insensitive" } },
+      { shortName: { contains: options.searchTerm, mode: "insensitive" } },
+    ];
+  }
+
+  // Column-based filters
+  if (options.filters) {
+    if (options.filters.type) {
+      where.type = options.filters.type as ProgramType;
+    }
+    if (options.filters.isActive === "true") {
+      where.isActive = true;
+    } else if (options.filters.isActive === "false") {
+      where.isActive = false;
+    }
+  }
+
+  // Default sort: name asc
+  const orderBy = options.orderBy
+    ? [options.orderBy, { name: "asc" as const }]
+    : [{ name: "asc" as const }];
+
+  const [data, total] = await Promise.all([
+    prisma.program.findMany({
+      where,
+      include: {
+        departments: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            isActive: true,
+          },
+        },
+      },
+      orderBy,
+      skip: options.skip,
+      take: options.take,
+    }),
+    prisma.program.count({ where }),
+  ]);
+
+  return { data, total };
+}

@@ -117,3 +117,61 @@ export async function deleteDepartment(id: string) {
     where: { id },
   });
 }
+
+// ─── Paginated Query (Dynamic Tables Engine) ─────────────────────────────────
+
+export interface ListDepartmentsPaginatedOptions {
+  skip: number;
+  take: number;
+  orderBy?: Record<string, "asc" | "desc">;
+  searchTerm?: string;
+  filters?: Record<string, string>;
+}
+
+export async function listDepartmentsPaginated(
+  options: ListDepartmentsPaginatedOptions
+): Promise<{
+  data: Awaited<ReturnType<typeof prisma.department.findMany>>;
+  total: number;
+}> {
+  const where: Prisma.DepartmentWhereInput = {};
+
+  // Search across name, code, description
+  if (options.searchTerm) {
+    where.OR = [
+      { name: { contains: options.searchTerm, mode: "insensitive" } },
+      { code: { contains: options.searchTerm, mode: "insensitive" } },
+      { description: { contains: options.searchTerm, mode: "insensitive" } },
+    ];
+  }
+
+  // Column-based filters
+  if (options.filters) {
+    if (options.filters.type) {
+      where.type = options.filters.type as DepartmentType;
+    }
+    if (options.filters.isActive === "true") {
+      where.isActive = true;
+    } else if (options.filters.isActive === "false") {
+      where.isActive = false;
+    }
+  }
+
+  // Default sort: type asc, name asc
+  const orderBy = options.orderBy
+    ? [options.orderBy, { name: "asc" as const }]
+    : [{ type: "asc" as const }, { name: "asc" as const }];
+
+  const [data, total] = await Promise.all([
+    prisma.department.findMany({
+      where,
+      include: { program: true },
+      orderBy,
+      skip: options.skip,
+      take: options.take,
+    }),
+    prisma.department.count({ where }),
+  ]);
+
+  return { data, total };
+}

@@ -1,38 +1,30 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   DepartmentList,
   DepartmentItem,
 } from "@/modules/departments/components/department-list";
 import { DepartmentFormDialog } from "@/modules/departments/components/department-form-dialog";
 import { DepartmentDeactivateDialog } from "@/modules/departments/components/department-deactivate-dialog";
-import { getDepartmentsAction } from "@/modules/departments/actions";
 
 export interface DepartmentClientWrapperProps {
-  initialDepartments: DepartmentItem[];
+  permissions: string[];
 }
 
 export function DepartmentClientWrapper({
-  initialDepartments,
+  permissions,
 }: DepartmentClientWrapperProps) {
-  const [departments, setDepartments] =
-    useState<DepartmentItem[]>(initialDepartments);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeactivateOpen, setIsDeactivateOpen] = useState(false);
   const [selectedDepartment, setSelectedDepartment] =
     useState<DepartmentItem | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  const handleRefresh = async () => {
-    try {
-      const res = await getDepartmentsAction({ includeInactive: true });
-      if (res.success && res.data) {
-        setDepartments(res.data as unknown as DepartmentItem[]);
-      }
-    } catch (err) {
-      console.error("Failed to refresh departments:", err);
-    }
-  };
+  const handleRefresh = useCallback(() => {
+    // Increment key to force DataTable to re-fetch
+    setRefreshKey((prev) => prev + 1);
+  }, []);
 
   const handleOpenCreate = () => {
     setSelectedDepartment(null);
@@ -51,13 +43,15 @@ export function DepartmentClientWrapper({
 
   return (
     <div>
-      <DepartmentList
-        departments={departments}
-        onOpenCreate={handleOpenCreate}
-        onOpenEdit={handleOpenEdit}
-        onOpenDeactivate={handleOpenDeactivate}
-        onRefresh={handleRefresh}
-      />
+      <div key={refreshKey}>
+        <DepartmentList
+          permissions={permissions}
+          onOpenCreate={handleOpenCreate}
+          onOpenEdit={handleOpenEdit}
+          onOpenDeactivate={handleOpenDeactivate}
+          onRefresh={handleRefresh}
+        />
+      </div>
 
       <DepartmentFormDialog
         isOpen={isFormOpen}

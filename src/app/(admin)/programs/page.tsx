@@ -2,39 +2,53 @@ import React from "react";
 import { requireAuth } from "@/server/services/auth.service";
 import { listProgramsService } from "@/server/services/program.service";
 import { listDepartmentsService } from "@/server/services/department.service";
+import { getUserPermissions } from "@/server/services/rbac.service";
 import { ProgramClientWrapper } from "./client-wrapper";
 import { BookOpen, GraduationCap, Building2, CheckCircle2 } from "lucide-react";
-import {
-  ProgramItem,
-  DepartmentOption,
-} from "@/modules/programs/components/program-list";
+import type { DepartmentOption } from "@/modules/programs/components/program-list";
 
 export default async function ProgramsPage() {
   const session = await requireAuth({ redirectTo: "/programs" });
 
-  let initialPrograms: ProgramItem[] = [];
+  // Fetch user permissions for DataTable engine
+  const permissions = session.user?.id
+    ? await getUserPermissions(session.user.id)
+    : [];
+
   let departments: DepartmentOption[] = [];
 
+  // Fetch departments for the form dialog
   try {
-    const [progs, depts] = await Promise.all([
-      listProgramsService(session.user, { includeInactive: true }),
-      listDepartmentsService(session.user, { includeInactive: false }),
-    ]);
-    initialPrograms = progs;
-    departments = depts;
+    departments = await listDepartmentsService(session.user, {
+      includeInactive: false,
+    });
   } catch (error) {
-    console.error(
-      "Failed to load programs or departments on server render:",
-      error
-    );
+    console.error("Failed to load departments:", error);
   }
 
-  const totalCount = initialPrograms.length;
-  const degreeCount = initialPrograms.filter((p) => p.type === "DEGREE").length;
-  const diplomaCount = initialPrograms.filter(
-    (p) => p.type === "DIPLOMA"
-  ).length;
-  const activeCount = initialPrograms.filter((p) => p.isActive).length;
+  // Fetch programs for stat cards
+  let totalCount = 0;
+  let degreeCount = 0;
+  let diplomaCount = 0;
+  let activeCount = 0;
+
+  try {
+    const programs = await listProgramsService(session.user, {
+      includeInactive: true,
+    });
+    totalCount = programs.length;
+    degreeCount = programs.filter(
+      (p: { type: string }) => p.type === "DEGREE"
+    ).length;
+    diplomaCount = programs.filter(
+      (p: { type: string }) => p.type === "DIPLOMA"
+    ).length;
+    activeCount = programs.filter(
+      (p: { isActive: boolean }) => p.isActive
+    ).length;
+  } catch (error) {
+    console.error("Failed to load program stats:", error);
+  }
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 p-6 md:p-8">
@@ -117,9 +131,9 @@ export default async function ProgramsPage() {
         </div>
       </div>
 
-      {/* Client Data Wrapper */}
+      {/* Client Data Table */}
       <ProgramClientWrapper
-        initialPrograms={initialPrograms}
+        permissions={permissions}
         departments={departments}
       />
     </div>

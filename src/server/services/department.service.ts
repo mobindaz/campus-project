@@ -24,8 +24,17 @@ import {
   findDepartmentById,
   findDepartmentByName,
   listDepartments,
+  listDepartmentsPaginated,
   updateDepartment,
 } from "@/server/repositories/department.repository";
+import {
+  buildPaginatedQuery,
+  buildCsvExport,
+} from "@/server/services/data-table.service";
+import type {
+  DataTableConfig,
+  DataTableColumnDef,
+} from "@/components/tables/data-table.types";
 import { logAudit } from "@/server/services/audit.service";
 import {
   createDepartmentSchema,
@@ -304,4 +313,99 @@ export async function deleteDepartmentService(
     mode: "DELETED" as const,
     message: "Department permanently deleted.",
   };
+}
+
+// ─── Dynamic Tables Engine: Paginated List ───────────────────────────────────
+
+/**
+ * Lists departments with server-side pagination, sorting, searching, and filtering.
+ * Used by the DataTable component.
+ */
+export async function listDepartmentsPaginatedService(
+  user: AuthUser | null | undefined,
+  config: DataTableConfig
+) {
+  await authorize(user, "departments.read");
+
+  const { skip, take, orderBy, searchTerm } = buildPaginatedQuery(config);
+
+  const { data, total } = await listDepartmentsPaginated({
+    skip,
+    take,
+    orderBy,
+    searchTerm,
+    filters: config.filters,
+  });
+
+  const pageSize = take;
+  const totalPages = Math.ceil(total / pageSize);
+
+  return {
+    data,
+    total,
+    page: config.page,
+    pageSize,
+    totalPages,
+  };
+}
+
+// ─── Dynamic Tables Engine: CSV Export ───────────────────────────────────────
+
+interface DepartmentRow {
+  id: string;
+  name: string;
+  code: string;
+  type: string;
+  description?: string | null;
+  isActive: boolean;
+  program?: { name: string; code: string } | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
+/** Column definitions used for CSV export value extraction */
+const DEPARTMENT_EXPORT_COLUMNS: DataTableColumnDef<DepartmentRow>[] = [
+  { id: "name", header: "Name", accessorKey: "name" },
+  { id: "code", header: "Code", accessorKey: "code" },
+  { id: "type", header: "Type", accessorKey: "type" },
+  {
+    id: "program",
+    header: "Parent Program",
+    exportAccessor: (row) => row.program?.name ?? "",
+  },
+  { id: "description", header: "Description", accessorKey: "description" },
+  {
+    id: "status",
+    header: "Status",
+    accessorKey: "isActive",
+    exportAccessor: (row) => (row.isActive ? "Active" : "Inactive"),
+  },
+];
+
+/**
+ * Exports departments matching current filters as a CSV string.
+ * Requires `departments.export` permission — returns 403 if missing.
+ */
+export async function exportDepartmentsCsvService(
+  user: AuthUser | null | undefined,
+  config: DataTableConfig,
+  userPermissions: string[]
+) {
+  await authorize(user, "departments.export");
+
+  // Fetch all matching rows (no pagination limit for export)
+  const { searchTerm } = buildPaginatedQuery(config);
+  const { data } = await listDepartmentsPaginated({
+    skip: 0,
+    take: 10000, // reasonable cap for CSV export
+    searchTerm,
+    filters: config.filters,
+  });
+
+  return buildCsvExport(
+    data as unknown as DepartmentRow[],
+    DEPARTMENT_EXPORT_COLUMNS,
+    config.visibleColumns,
+    userPermissions
+  );
 }

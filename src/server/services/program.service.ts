@@ -21,8 +21,17 @@ import {
   findProgramById,
   findProgramByName,
   listPrograms,
+  listProgramsPaginated,
   updateProgram,
 } from "@/server/repositories/program.repository";
+import {
+  buildPaginatedQuery,
+  buildCsvExport,
+} from "@/server/services/data-table.service";
+import type {
+  DataTableConfig,
+  DataTableColumnDef,
+} from "@/components/tables/data-table.types";
 import { logAudit } from "@/server/services/audit.service";
 import {
   createProgramSchema,
@@ -294,4 +303,106 @@ export async function deleteProgramService(
     mode: "DELETED" as const,
     message: "Program permanently deleted.",
   };
+}
+
+// ─── Dynamic Tables Engine: Paginated List ───────────────────────────────────
+
+/**
+ * Lists programs with server-side pagination, sorting, searching, and filtering.
+ * Used by the DataTable component.
+ */
+export async function listProgramsPaginatedService(
+  user: AuthUser | null | undefined,
+  config: DataTableConfig
+) {
+  await authorize(user, "programs.read");
+
+  const { skip, take, orderBy, searchTerm } = buildPaginatedQuery(config);
+
+  const { data, total } = await listProgramsPaginated({
+    skip,
+    take,
+    orderBy,
+    searchTerm,
+    filters: config.filters,
+  });
+
+  const pageSize = take;
+  const totalPages = Math.ceil(total / pageSize);
+
+  return {
+    data,
+    total,
+    page: config.page,
+    pageSize,
+    totalPages,
+  };
+}
+
+// ─── Dynamic Tables Engine: CSV Export ───────────────────────────────────────
+
+interface ProgramRow {
+  id: string;
+  name: string;
+  code: string;
+  shortName: string;
+  type: string;
+  durationYears: number;
+  isActive: boolean;
+  departments?: { id: string; name: string; code: string }[];
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
+/** Column definitions used for CSV export value extraction */
+const PROGRAM_EXPORT_COLUMNS: DataTableColumnDef<ProgramRow>[] = [
+  { id: "name", header: "Name", accessorKey: "name" },
+  { id: "code", header: "Code", accessorKey: "code" },
+  { id: "shortName", header: "Short Name", accessorKey: "shortName" },
+  { id: "type", header: "Award Type", accessorKey: "type" },
+  {
+    id: "duration",
+    header: "Duration (Years)",
+    accessorKey: "durationYears",
+    exportAccessor: (row) => row.durationYears,
+  },
+  {
+    id: "departments",
+    header: "Departments",
+    exportAccessor: (row) =>
+      row.departments?.map((d) => `${d.name} (${d.code})`).join("; ") ?? "",
+  },
+  {
+    id: "status",
+    header: "Status",
+    accessorKey: "isActive",
+    exportAccessor: (row) => (row.isActive ? "Active" : "Inactive"),
+  },
+];
+
+/**
+ * Exports programs matching current filters as a CSV string.
+ * Requires `programs.export` permission — returns 403 if missing.
+ */
+export async function exportProgramsCsvService(
+  user: AuthUser | null | undefined,
+  config: DataTableConfig,
+  userPermissions: string[]
+) {
+  await authorize(user, "programs.export");
+
+  const { searchTerm } = buildPaginatedQuery(config);
+  const { data } = await listProgramsPaginated({
+    skip: 0,
+    take: 10000,
+    searchTerm,
+    filters: config.filters,
+  });
+
+  return buildCsvExport(
+    data as unknown as ProgramRow[],
+    PROGRAM_EXPORT_COLUMNS,
+    config.visibleColumns,
+    userPermissions
+  );
 }

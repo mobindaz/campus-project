@@ -8,6 +8,8 @@ import {
   deactivateProgramService,
   deleteProgramService,
   listProgramsService,
+  listProgramsPaginatedService,
+  exportProgramsCsvService,
   updateProgramService,
 } from "@/server/services/program.service";
 import {
@@ -15,6 +17,7 @@ import {
   ProgramFilterInput,
   UpdateProgramInput,
 } from "./schemas";
+import type { DataTableConfig } from "@/components/tables/data-table.types";
 
 export async function getProgramsAction(filters?: ProgramFilterInput) {
   try {
@@ -32,6 +35,55 @@ export async function getProgramsAction(filters?: ProgramFilterInput) {
     return {
       success: false,
       error: "An unexpected error occurred while fetching programs.",
+    };
+  }
+}
+
+export async function getProgramsPaginatedAction(config: DataTableConfig) {
+  try {
+    const session = await getSession();
+    const result = await listProgramsPaginatedService(session?.user, config);
+    return { success: true, data: result };
+  } catch (error: unknown) {
+    if (error instanceof AppError) {
+      return {
+        success: false,
+        error: error.message,
+        statusCode: error.statusCode,
+      };
+    }
+    return {
+      success: false,
+      error: "An unexpected error occurred while fetching programs.",
+    };
+  }
+}
+
+export async function exportProgramsCsvAction(config: DataTableConfig) {
+  try {
+    const session = await getSession();
+    const { getUserPermissions } =
+      await import("@/server/services/rbac.service");
+    const userPermissions = session?.user?.id
+      ? await getUserPermissions(session.user.id)
+      : [];
+    const csv = await exportProgramsCsvService(
+      session?.user,
+      config,
+      userPermissions
+    );
+    return { success: true, data: csv };
+  } catch (error: unknown) {
+    if (error instanceof AppError) {
+      return {
+        success: false,
+        error: error.message,
+        statusCode: error.statusCode,
+      };
+    }
+    return {
+      success: false,
+      error: "An unexpected error occurred while exporting programs.",
     };
   }
 }

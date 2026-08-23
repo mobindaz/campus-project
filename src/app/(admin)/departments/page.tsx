@@ -1,8 +1,8 @@
 import React from "react";
 import { requireAuth } from "@/server/services/auth.service";
 import { listDepartmentsService } from "@/server/services/department.service";
+import { getUserPermissions } from "@/server/services/rbac.service";
 import { DepartmentClientWrapper } from "./client-wrapper";
-import { DepartmentItem } from "@/modules/departments/components/department-list";
 import {
   Building2,
   GraduationCap,
@@ -12,24 +12,35 @@ import {
 
 export default async function DepartmentsPage() {
   const session = await requireAuth({ redirectTo: "/departments" });
-  let initialDepartments: DepartmentItem[] = [];
+
+  // Fetch user permissions for the DataTable engine
+  const permissions = session.user?.id
+    ? await getUserPermissions(session.user.id)
+    : [];
+
+  // Fetch all departments for stat cards (lightweight, not paginated)
+  let totalCount = 0;
+  let academicCount = 0;
+  let adminCount = 0;
+  let activeCount = 0;
 
   try {
-    initialDepartments = await listDepartmentsService(session.user, {
+    const departments = await listDepartmentsService(session.user, {
       includeInactive: true,
     });
+    totalCount = departments.length;
+    academicCount = departments.filter(
+      (d: { type: string }) => d.type === "ACADEMIC"
+    ).length;
+    adminCount = departments.filter(
+      (d: { type: string }) => d.type === "ADMINISTRATIVE"
+    ).length;
+    activeCount = departments.filter(
+      (d: { isActive: boolean }) => d.isActive
+    ).length;
   } catch (error) {
-    console.error("Failed to load departments on server render:", error);
+    console.error("Failed to load department stats:", error);
   }
-
-  const totalCount = initialDepartments.length;
-  const academicCount = initialDepartments.filter(
-    (d) => d.type === "ACADEMIC"
-  ).length;
-  const adminCount = initialDepartments.filter(
-    (d) => d.type === "ADMINISTRATIVE"
-  ).length;
-  const activeCount = initialDepartments.filter((d) => d.isActive).length;
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 p-6 md:p-8">
@@ -112,8 +123,8 @@ export default async function DepartmentsPage() {
         </div>
       </div>
 
-      {/* Interactive Data List Wrapper */}
-      <DepartmentClientWrapper initialDepartments={initialDepartments} />
+      {/* Interactive Data Table */}
+      <DepartmentClientWrapper permissions={permissions} />
     </div>
   );
 }

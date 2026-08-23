@@ -8,6 +8,8 @@ import {
   deactivateDepartmentService,
   deleteDepartmentService,
   listDepartmentsService,
+  listDepartmentsPaginatedService,
+  exportDepartmentsCsvService,
   updateDepartmentService,
 } from "@/server/services/department.service";
 import {
@@ -15,6 +17,7 @@ import {
   DepartmentFilterInput,
   UpdateDepartmentInput,
 } from "./schemas";
+import type { DataTableConfig } from "@/components/tables/data-table.types";
 
 export async function getDepartmentsAction(filters?: DepartmentFilterInput) {
   try {
@@ -32,6 +35,56 @@ export async function getDepartmentsAction(filters?: DepartmentFilterInput) {
     return {
       success: false,
       error: "An unexpected error occurred while fetching departments.",
+    };
+  }
+}
+
+export async function getDepartmentsPaginatedAction(config: DataTableConfig) {
+  try {
+    const session = await getSession();
+    const result = await listDepartmentsPaginatedService(session?.user, config);
+    return { success: true, data: result };
+  } catch (error: unknown) {
+    if (error instanceof AppError) {
+      return {
+        success: false,
+        error: error.message,
+        statusCode: error.statusCode,
+      };
+    }
+    return {
+      success: false,
+      error: "An unexpected error occurred while fetching departments.",
+    };
+  }
+}
+
+export async function exportDepartmentsCsvAction(config: DataTableConfig) {
+  try {
+    const session = await getSession();
+    // Fetch user permissions for CSV column filtering
+    const { getUserPermissions } =
+      await import("@/server/services/rbac.service");
+    const userPermissions = session?.user?.id
+      ? await getUserPermissions(session.user.id)
+      : [];
+    const csv = await exportDepartmentsCsvService(
+      session?.user,
+      config,
+      userPermissions
+    );
+    return { success: true, data: csv };
+  } catch (error: unknown) {
+    if (error instanceof AppError) {
+      return {
+        success: false,
+        error: error.message,
+        statusCode: error.statusCode,
+      };
+    }
+    return {
+      success: false,
+      error: "An unexpected error occurred while exporting departments.",
     };
   }
 }

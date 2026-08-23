@@ -180,6 +180,12 @@ export const DEFAULT_PERMISSIONS = [
     module: "departments",
     description: "Full department module administration",
   },
+  {
+    code: "departments.export",
+    name: "Export Departments",
+    module: "departments",
+    description: "Export departments data to CSV",
+  },
 
   // Program module
   {
@@ -211,6 +217,12 @@ export const DEFAULT_PERMISSIONS = [
     name: "Manage Programs",
     module: "programs",
     description: "Full program module administration",
+  },
+  {
+    code: "programs.export",
+    name: "Export Programs",
+    module: "programs",
+    description: "Export programs data to CSV",
   },
 
   // Platform Engines & Management
