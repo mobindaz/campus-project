@@ -24,6 +24,11 @@ import {
   listValueMappingsService,
   deleteValueMappingService,
 } from "@/server/services/value-mapping.service";
+import { validateStudentImportRows } from "@/server/services/import-validation.service";
+import {
+  executeStudentImportService,
+  listImportHistoryService,
+} from "@/server/services/import-execution.service";
 import {
   excelParseOptionsSchema,
   fileValidationOptionsSchema,
@@ -31,6 +36,9 @@ import {
   getColumnMappingSuggestionsSchema,
   saveValueMappingsSchema,
   resolveFieldValuesSchema,
+  validateImportRowsSchema,
+  executeImportSchema,
+  listImportHistorySchema,
 } from "./schemas";
 import type {
   ExcelParseOptions,
@@ -43,6 +51,11 @@ import type {
   SaveValueMappingItemInput,
   ValueMappingItem,
   ValueResolutionResult,
+  ImportValidationResult,
+  ExecuteImportInput,
+  ImportExecutionResult,
+  ImportHistoryRecord,
+  MatchingStrategy,
 } from "./types";
 
 export interface ActionResult<T> {
@@ -466,6 +479,123 @@ export async function deleteValueMappingAction(
     return {
       success: false,
       error: "An unexpected error occurred while deleting value mapping.",
+    };
+  }
+}
+
+// ─── Row Validation & Chunked Execution Actions (Spec §19–20 & Correction #9) ─
+
+/**
+ * Server action to run row-level validation and detect duplicates/actions.
+ */
+export async function validateImportRowsAction(
+  rows: Array<Record<string, unknown>>,
+  entityType: string,
+  matchingStrategy: MatchingStrategy = "registerNumber"
+): Promise<ActionResult<ImportValidationResult>> {
+  try {
+    const session = await getSession();
+    if (!session?.user) {
+      throw new UnauthorizedError(
+        "Authentication required to validate import rows."
+      );
+    }
+
+    const validated = validateImportRowsSchema.parse({
+      rows,
+      entityType,
+      matchingStrategy,
+    });
+
+    const result = await validateStudentImportRows(
+      validated.rows,
+      validated.matchingStrategy as MatchingStrategy
+    );
+
+    return { success: true, data: result };
+  } catch (error: unknown) {
+    if (error instanceof AppError) {
+      return {
+        success: false,
+        error: error.message,
+        statusCode: error.statusCode,
+      };
+    }
+    return {
+      success: false,
+      error: "An unexpected error occurred while validating import rows.",
+    };
+  }
+}
+
+/**
+ * Server action to execute chunked upsert with row-level error isolation.
+ */
+export async function executeImportAction(
+  input: ExecuteImportInput
+): Promise<ActionResult<ImportExecutionResult>> {
+  try {
+    const session = await getSession();
+    if (!session?.user) {
+      throw new UnauthorizedError("Authentication required to execute import.");
+    }
+
+    const validated = executeImportSchema.parse(input);
+    const result = await executeStudentImportService(
+      session.user,
+      validated as ExecuteImportInput
+    );
+
+    return { success: true, data: result };
+  } catch (error: unknown) {
+    if (error instanceof AppError) {
+      return {
+        success: false,
+        error: error.message,
+        statusCode: error.statusCode,
+      };
+    }
+    return {
+      success: false,
+      error: "An unexpected error occurred while executing import.",
+    };
+  }
+}
+
+/**
+ * Server action to list past import history records.
+ */
+export async function listImportHistoryAction(
+  entityType?: string,
+  limit?: number
+): Promise<ActionResult<ImportHistoryRecord[]>> {
+  try {
+    const session = await getSession();
+    if (!session?.user) {
+      throw new UnauthorizedError(
+        "Authentication required to view import history."
+      );
+    }
+
+    const validated = listImportHistorySchema.parse({ entityType, limit });
+    const list = await listImportHistoryService(
+      session.user,
+      validated.entityType,
+      validated.limit
+    );
+
+    return { success: true, data: list };
+  } catch (error: unknown) {
+    if (error instanceof AppError) {
+      return {
+        success: false,
+        error: error.message,
+        statusCode: error.statusCode,
+      };
+    }
+    return {
+      success: false,
+      error: "An unexpected error occurred while listing import history.",
     };
   }
 }

@@ -11,6 +11,9 @@ import {
   saveValueMappingsAction,
   listValueMappingsAction,
   deleteValueMappingAction,
+  validateImportRowsAction,
+  executeImportAction,
+  listImportHistoryAction,
 } from "./actions";
 
 vi.mock("@/server/services/auth.service", () => ({
@@ -32,9 +35,20 @@ vi.mock("@/server/services/value-mapping.service", () => ({
   deleteValueMappingService: vi.fn(),
 }));
 
+vi.mock("@/server/services/import-validation.service", () => ({
+  validateStudentImportRows: vi.fn(),
+}));
+
+vi.mock("@/server/services/import-execution.service", () => ({
+  executeStudentImportService: vi.fn(),
+  listImportHistoryService: vi.fn(),
+}));
+
 import { getSession } from "@/server/services/auth.service";
 import * as columnMappingService from "@/server/services/column-mapping.service";
 import * as valueMappingService from "@/server/services/value-mapping.service";
+import * as validationService from "@/server/services/import-validation.service";
+import * as executionService from "@/server/services/import-execution.service";
 
 function createMockExcelFile(
   name = "test.xlsx",
@@ -428,6 +442,118 @@ describe("Excel Import Actions", () => {
       const res = await deleteValueMappingAction("vm_1");
       expect(res.success).toBe(true);
       expect(res.data?.id).toBe("vm_1");
+    });
+  });
+
+  describe("Validation & Execution Actions (Spec §19–20)", () => {
+    const mockUser = {
+      id: "u1",
+      name: "Admin",
+      email: "admin@college.edu",
+    };
+
+    it("validateImportRowsAction runs row validation", async () => {
+      vi.mocked(getSession).mockResolvedValue({
+        user: mockUser,
+        session: {
+          id: "s1",
+          userId: "u1",
+          token: "tok",
+          expiresAt: new Date(),
+        },
+      } as unknown as Awaited<ReturnType<typeof getSession>>);
+
+      vi.mocked(validationService.validateStudentImportRows).mockResolvedValue({
+        summary: {
+          totalRows: 1,
+          validRows: 1,
+          warningRows: 0,
+          errorRows: 0,
+          duplicateRows: 0,
+          createCount: 1,
+          updateCount: 0,
+          canProceed: true,
+        },
+        rows: [],
+      });
+
+      const res = await validateImportRowsAction(
+        [{ registerNumber: "2024001", name: "Alice" }],
+        "STUDENT",
+        "registerNumber"
+      );
+
+      expect(res.success).toBe(true);
+      expect(res.data?.summary.validRows).toBe(1);
+    });
+
+    it("executeImportAction runs chunked upsert", async () => {
+      vi.mocked(getSession).mockResolvedValue({
+        user: mockUser,
+        session: {
+          id: "s1",
+          userId: "u1",
+          token: "tok",
+          expiresAt: new Date(),
+        },
+      } as unknown as Awaited<ReturnType<typeof getSession>>);
+
+      vi.mocked(executionService.executeStudentImportService).mockResolvedValue(
+        {
+          importHistoryId: "hist_1",
+          totalRows: 1,
+          createdCount: 1,
+          updatedCount: 0,
+          skippedCount: 0,
+          errorCount: 0,
+          failedRows: [],
+          success: true,
+        }
+      );
+
+      const res = await executeImportAction({
+        entityType: "STUDENT",
+        fileName: "students.xlsx",
+        rows: [{ registerNumber: "2024001", name: "Alice" }],
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.data?.createdCount).toBe(1);
+    });
+
+    it("listImportHistoryAction lists history", async () => {
+      vi.mocked(getSession).mockResolvedValue({
+        user: mockUser,
+        session: {
+          id: "s1",
+          userId: "u1",
+          token: "tok",
+          expiresAt: new Date(),
+        },
+      } as unknown as Awaited<ReturnType<typeof getSession>>);
+
+      vi.mocked(executionService.listImportHistoryService).mockResolvedValue([
+        {
+          id: "hist_1",
+          entityType: "STUDENT",
+          fileName: "students.xlsx",
+          fileSize: 1024,
+          uploadedById: "u1",
+          uploadedBy: "admin@college.edu",
+          matchingKey: "registerNumber",
+          totalRows: 10,
+          createdCount: 10,
+          updatedCount: 0,
+          skippedCount: 0,
+          errorCount: 0,
+          status: "COMPLETED",
+          createdAt: new Date(),
+        },
+      ]);
+
+      const res = await listImportHistoryAction("STUDENT");
+      expect(res.success).toBe(true);
+      expect(res.data).toHaveLength(1);
     });
   });
 });

@@ -412,6 +412,30 @@ model ValueMapping {
   @@map("value_mappings")
 }
 
+model ImportHistory {
+  id           String   @id @default(cuid())
+  entityType   String   // e.g. "STUDENT", "FACULTY"
+  fileName     String
+  fileSize     Int?
+  uploadedById String?
+  uploadedBy   String   // user email or display name
+  matchingKey  String   @default("registerNumber")
+  totalRows    Int
+  createdCount Int      @default(0)
+  updatedCount Int      @default(0)
+  skippedCount Int      @default(0)
+  errorCount   Int      @default(0)
+  status       String   @default("COMPLETED") // "COMPLETED", "PARTIAL", "FAILED"
+  errors       Json?    // Array of failed row records
+  metadata     Json?    // column mappings, value mappings used
+  createdAt    DateTime @default(now())
+
+  @@index([entityType, createdAt])
+  @@index([uploadedById])
+  @@map("import_history")
+}
+
+
 
 
 

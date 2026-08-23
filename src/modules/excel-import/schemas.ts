@@ -107,3 +107,39 @@ export const resolveFieldValuesSchema = z.object({
 });
 
 export type ResolveFieldValuesInput = z.infer<typeof resolveFieldValuesSchema>;
+
+// ─── Row Validation & Execution Schemas (Spec §19–20 & Correction #9) ─────────
+
+export const validateImportRowsSchema = z.object({
+  entityType: z.string().trim().min(1),
+  matchingStrategy: z
+    .enum(["registerNumber", "email"])
+    .default("registerNumber")
+    .optional(),
+  rows: z.array(z.record(z.string(), z.unknown())),
+});
+
+export type ValidateImportRowsInput = z.infer<typeof validateImportRowsSchema>;
+
+export const executeImportSchema = z.object({
+  entityType: z.string().trim().min(1),
+  fileName: z.string().trim().min(1),
+  fileSize: z.number().int().positive().optional(),
+  matchingStrategy: z
+    .enum(["registerNumber", "email"])
+    .default("registerNumber")
+    .optional(),
+  rows: z.array(z.record(z.string(), z.unknown())),
+  skipErrors: z.boolean().default(true).optional(),
+  chunkSize: z.number().int().min(1).max(1000).default(200).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
+
+export type ExecuteImportSchemaInput = z.infer<typeof executeImportSchema>;
+
+export const listImportHistorySchema = z.object({
+  entityType: z.string().trim().min(1).optional(),
+  limit: z.number().int().positive().max(100).default(50).optional(),
+});
+
+export type ListImportHistoryInput = z.infer<typeof listImportHistorySchema>;

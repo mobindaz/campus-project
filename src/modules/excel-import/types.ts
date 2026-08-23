@@ -202,6 +202,96 @@ export interface ValueMappingItem {
   updatedAt: Date | string;
 }
 
+// ─── Row Validation & Preview Types (Spec §19–20) ───────────────────────────
+
+export type RowValidationStatus = "VALID" | "WARNING" | "ERROR" | "DUPLICATE";
+
+export type RowImportAction = "CREATE" | "UPDATE" | "SKIP";
+
+export interface RowValidationError {
+  field: string;
+  message: string;
+  isWarning?: boolean;
+}
+
+export interface RowValidationResult {
+  rowNumber: number;
+  status: RowValidationStatus;
+  action: RowImportAction;
+  errors: RowValidationError[];
+  warnings: RowValidationError[];
+  data: Record<string, unknown>;
+  originalData: Record<string, unknown>;
+}
+
+export interface ImportValidationSummary {
+  totalRows: number;
+  validRows: number;
+  warningRows: number;
+  errorRows: number;
+  duplicateRows: number;
+  createCount: number;
+  updateCount: number;
+  canProceed: boolean;
+}
+
+export interface ImportValidationResult {
+  summary: ImportValidationSummary;
+  rows: RowValidationResult[];
+}
+
+// ─── Chunked Import Execution Types (Correction #9 & Spec §20) ───────────────
+
+export type MatchingStrategy = "registerNumber" | "email";
+
+export interface ExecuteImportInput {
+  entityType: string;
+  fileName: string;
+  fileSize?: number;
+  matchingStrategy?: MatchingStrategy;
+  rows: Array<Record<string, unknown>>;
+  skipErrors?: boolean;
+  chunkSize?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface FailedRowError {
+  rowNumber: number;
+  identifier?: string;
+  error: string;
+  data?: unknown;
+}
+
+export interface ImportExecutionResult {
+  importHistoryId: string;
+  totalRows: number;
+  createdCount: number;
+  updatedCount: number;
+  skippedCount: number;
+  errorCount: number;
+  failedRows: FailedRowError[];
+  success: boolean;
+}
+
+export interface ImportHistoryRecord {
+  id: string;
+  entityType: string;
+  fileName: string;
+  fileSize?: number | null;
+  uploadedById?: string | null;
+  uploadedBy: string;
+  matchingKey: string;
+  totalRows: number;
+  createdCount: number;
+  updatedCount: number;
+  skippedCount: number;
+  errorCount: number;
+  status: string;
+  errors?: unknown;
+  metadata?: unknown;
+  createdAt: Date | string;
+}
+
 export interface BatchItemError {
   index: number;
   rowNumber?: number;
