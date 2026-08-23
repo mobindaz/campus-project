@@ -269,6 +269,19 @@ export async function listAcademicPeriodsService(
 }
 
 /**
+ * Lists all academic periods across all programs or filtered by options.
+ */
+export async function listAllAcademicPeriodsService(
+  user: AuthUser | null | undefined,
+  options: { includeInactive?: boolean; programId?: string } = {}
+) {
+  await authorize(user, "programs.read");
+  const { listAcademicPeriods } =
+    await import("@/server/repositories/academic-period.repository");
+  return listAcademicPeriods(options);
+}
+
+/**
  * Creates a single academic period under a program.
  */
 export async function createAcademicPeriodService(
